@@ -136,6 +136,29 @@ public class BookmarkService {
         return bookmark;
     }
 
+    /**
+     * Writes the dialog's fields back over an existing bookmark. What the reader added
+     * themselves — the notes, the highlights, and when they saved it — is carried
+     * across untouched: editing a title is not a reason to lose any of it.
+     */
+    public void update(String id, LinkDraft draft) {
+        replace(id, existing -> new Bookmark(
+                existing.id(),
+                draft.getUrl(),
+                draft.getTitle(),
+                draft.getSite(),
+                draft.getSite(),
+                draft.getDescription(),
+                draft.tagsOrEmpty(),
+                draft.getType(),
+                draft.isReadLater(),
+                existing.savedAt(),
+                Math.max(1, draft.getReadingMinutes()),
+                draft.getContent(),
+                existing.notes(),
+                existing.highlights()));
+    }
+
     public void toggleReadLater(String id) {
         replace(id, bookmark -> bookmark.withReadLater(!bookmark.readLater()));
     }

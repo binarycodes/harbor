@@ -18,8 +18,10 @@ import io.binarycodes.harbor.base.ui.EmptyState;
 import io.binarycodes.harbor.base.ui.MainLayout;
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.service.BookmarkService;
+import io.binarycodes.harbor.library.service.MetadataResolver;
 import io.binarycodes.harbor.library.ui.component.DeleteBookmarkDialog;
 import io.binarycodes.harbor.library.ui.component.ReaderArticle;
+import io.binarycodes.harbor.library.ui.component.SaveLinkDialog;
 import io.binarycodes.harbor.library.ui.component.ReaderHeader;
 import io.binarycodes.harbor.library.ui.component.ReaderSidePanel;
 
@@ -41,20 +43,26 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
     public static final String BOOKMARK_ID = "bookmarkId";
 
     private final BookmarkService bookmarkService;
-    private final ReaderHeader header = new ReaderHeader(this::toggleReadLater, this::deleteBookmark);
+    private final ReaderHeader header = new ReaderHeader(this::toggleReadLater, this::editBookmark,
+            this::deleteBookmark);
     private final ReaderArticle article = new ReaderArticle(this::addHighlight);
     private final ReaderSidePanel sidePanel;
     private final EmptyState missing = new EmptyState();
     private final Div body = new Div();
+
+    private final SaveLinkDialog editDialog;
 
     private String bookmarkId;
     private String pageTitle;
     private Registration libraryChanges;
     private boolean rendered;
 
-    public ReaderView(BookmarkService bookmarkService) {
+    public ReaderView(BookmarkService bookmarkService, MetadataResolver metadataResolver) {
         this.bookmarkService = bookmarkService;
         sidePanel = new ReaderSidePanel(this::updateNotes, this::removeHighlight);
+        // Saving an edit redraws the article in place: the change listener cannot, because
+        // it deliberately leaves a rendered article alone while notes are being typed.
+        editDialog = new SaveLinkDialog(bookmarkService, metadataResolver, this::show);
 
         addClassName("reader-view");
         setSizeFull();
@@ -112,6 +120,9 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
 
     private void show(Bookmark bookmark) {
         pageTitle = bookmark.title();
+        // Flow reads getPageTitle() when it navigates, and an edit is not a navigation:
+        // without this the tab keeps the title the article had before it was corrected.
+        getUI().ifPresent(ui -> ui.getPage().setTitle(pageTitle));
         header.show(bookmark);
         article.show(bookmark);
         sidePanel.show(bookmark);
@@ -137,6 +148,10 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
     private void toggleReadLater() {
         bookmarkService.toggleReadLater(bookmarkId);
         current().ifPresent(header::show);
+    }
+
+    private void editBookmark() {
+        current().ifPresent(editDialog::openFor);
     }
 
     /**

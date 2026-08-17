@@ -16,10 +16,13 @@ import org.springframework.test.context.ContextConfiguration;
 
 import com.vaadin.browserless.SpringBrowserlessTest;
 import com.vaadin.flow.component.ComponentUtil;
+import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
+import com.vaadin.flow.component.textfield.TextField;
 
 import io.binarycodes.harbor.BrowserlessStorageConfiguration;
 import io.binarycodes.harbor.StubMetadataConfiguration;
+import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.BookmarkType;
 import io.binarycodes.harbor.library.domain.LibraryQuery;
 import io.binarycodes.harbor.library.domain.LibraryScope;
@@ -31,6 +34,8 @@ import io.binarycodes.harbor.library.ui.component.BookmarkCard;
 import io.binarycodes.harbor.library.ui.component.BookmarkRow;
 import io.binarycodes.harbor.library.ui.component.DeleteBookmarkButton;
 import io.binarycodes.harbor.library.ui.component.DeleteBookmarkDialog;
+import io.binarycodes.harbor.library.ui.component.EditBookmarkButton;
+import io.binarycodes.harbor.library.ui.component.SaveLinkDialog;
 
 @SpringBootTest
 @ContextConfiguration(classes = { StubMetadataConfiguration.class, BrowserlessStorageConfiguration.class })
@@ -177,6 +182,26 @@ class LibraryViewTest extends SpringBrowserlessTest {
 
         assertTrue(bookmarkService.withHighlights().isEmpty());
         assertEquals(0, bookmarkService.count());
+    }
+
+    @Test
+    @DisplayName("edits a bookmark in place, keeping its notes and highlights")
+    void editsABookmarkInPlace() {
+        String id = save("https://example.com/one", "One");
+        bookmarkService.updateNotes(id, "worth remembering");
+        bookmarkService.addHighlight(id, "a passage worth keeping");
+        showRows();
+
+        findInView(EditBookmarkButton.class).all().getFirst().click();
+        SaveLinkDialog dialog = find(SaveLinkDialog.class).single();
+        find(TextField.class, dialog).withLabel("Title").single().setValue("One, corrected");
+        find(Button.class, dialog).withCaption("Save changes").single().click();
+
+        Bookmark edited = bookmarkService.findById(id).orElseThrow();
+        assertEquals("One, corrected", edited.title());
+        assertEquals("worth remembering", edited.notes());
+        assertEquals(1, edited.highlights().size());
+        assertEquals(1, bookmarkService.count());
     }
 
     /**

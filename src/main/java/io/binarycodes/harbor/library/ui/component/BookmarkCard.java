@@ -33,6 +33,7 @@ public class BookmarkCard extends Card {
         description.addClassName("bookmark-card-description");
         add(description, new TagChips(bookmark.tags()));
         addToFooter(new BookmarkMetadata(bookmark),
+                new EditBookmarkButton(() -> actions.edit(bookmark)),
                 new DeleteBookmarkButton(() -> actions.remove(bookmark)));
 
         getElement().addEventListener("click", event -> actions.open(bookmark));

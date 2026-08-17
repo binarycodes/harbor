@@ -32,6 +32,7 @@ public class BookmarkRow extends HorizontalLayout {
 
         Div text = text(bookmark);
         add(CoverTile.forSite(bookmark.site()), text, date, new ReadLaterButton(bookmark, actions),
+                new EditBookmarkButton(() -> actions.edit(bookmark)),
                 new DeleteBookmarkButton(() -> actions.remove(bookmark)));
         setFlexGrow(1, text);
 

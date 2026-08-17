@@ -46,7 +46,7 @@ public class BookmarkCompactGrid extends Grid<Bookmark> {
                 .setHeader(getTranslation("bookmark.column.actions"))
                 .setTextAlign(ColumnTextAlign.END)
                 .setFlexGrow(0)
-                .setWidth("104px");
+                .setWidth("140px");
 
         addItemClickListener(event -> actions.open(event.getItem()));
     }
@@ -61,6 +61,7 @@ public class BookmarkCompactGrid extends Grid<Bookmark> {
      */
     private Div actionsCell(Bookmark bookmark, BookmarkActions actions) {
         Div cell = new Div(new ReadLaterButton(bookmark, actions),
+                new EditBookmarkButton(() -> actions.edit(bookmark)),
                 new DeleteBookmarkButton(() -> actions.remove(bookmark)));
         cell.addClassName("bookmark-compact-actions");
         return cell;

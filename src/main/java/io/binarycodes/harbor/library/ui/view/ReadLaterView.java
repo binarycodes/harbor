@@ -6,6 +6,7 @@ import io.binarycodes.harbor.base.ui.MainLayout;
 import io.binarycodes.harbor.library.domain.LibraryScope;
 import io.binarycodes.harbor.library.service.BookmarkService;
 import io.binarycodes.harbor.library.service.LibraryFilter;
+import io.binarycodes.harbor.library.service.MetadataResolver;
 import io.binarycodes.harbor.library.ui.component.LibraryContent;
 
 /**
@@ -14,7 +15,8 @@ import io.binarycodes.harbor.library.ui.component.LibraryContent;
 @Route(value = "later", layout = MainLayout.class)
 public class ReadLaterView extends LibraryContent {
 
-    public ReadLaterView(BookmarkService bookmarkService, LibraryFilter libraryFilter) {
-        super(LibraryScope.READ_LATER, bookmarkService, libraryFilter);
+    public ReadLaterView(BookmarkService bookmarkService, LibraryFilter libraryFilter,
+            MetadataResolver metadataResolver) {
+        super(LibraryScope.READ_LATER, bookmarkService, libraryFilter, metadataResolver);
     }
 }

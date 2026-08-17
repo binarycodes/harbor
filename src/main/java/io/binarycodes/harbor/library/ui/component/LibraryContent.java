@@ -19,6 +19,7 @@ import io.binarycodes.harbor.library.domain.LibraryQuery;
 import io.binarycodes.harbor.library.domain.LibraryScope;
 import io.binarycodes.harbor.library.service.BookmarkService;
 import io.binarycodes.harbor.library.service.LibraryFilter;
+import io.binarycodes.harbor.library.service.MetadataResolver;
 import io.binarycodes.harbor.library.ui.view.ReaderView;
 
 /**
@@ -32,14 +33,20 @@ public class LibraryContent extends VerticalLayout implements BookmarkActions, H
     private final LibraryFilter libraryFilter;
     private final LibraryToolbar toolbar;
     private final ActiveTagChips activeTagChips;
+    private final SaveLinkDialog editDialog;
     private final BookmarkListing listing = new BookmarkListing(this);
     private final EmptyState emptyState = new EmptyState();
     private final List<Registration> registrations = new ArrayList<>();
 
-    protected LibraryContent(LibraryScope scope, BookmarkService bookmarkService, LibraryFilter libraryFilter) {
+    protected LibraryContent(LibraryScope scope, BookmarkService bookmarkService, LibraryFilter libraryFilter,
+            MetadataResolver metadataResolver) {
         this.scope = scope;
         this.bookmarkService = bookmarkService;
         this.libraryFilter = libraryFilter;
+        // Its own dialog rather than the sidebar's: that one belongs to the layout,
+        // which a listing has no handle on, and the two are never open at once anyway.
+        editDialog = new SaveLinkDialog(bookmarkService, metadataResolver, bookmark -> {
+        });
         toolbar = new LibraryToolbar(libraryFilter);
         activeTagChips = new ActiveTagChips(libraryFilter);
 
@@ -68,6 +75,11 @@ public class LibraryContent extends VerticalLayout implements BookmarkActions, H
     @Override
     public void toggleReadLater(Bookmark bookmark) {
         bookmarkService.toggleReadLater(bookmark.id());
+    }
+
+    @Override
+    public void edit(Bookmark bookmark) {
+        editDialog.openFor(bookmark);
     }
 
     @Override

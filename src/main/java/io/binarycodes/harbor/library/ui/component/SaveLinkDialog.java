@@ -21,6 +21,7 @@ import com.vaadin.flow.data.binder.Binder;
 import com.vaadin.flow.data.value.ValueChangeMode;
 
 import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.domain.BookmarkType;
 import io.binarycodes.harbor.library.domain.LinkDraft;
 import io.binarycodes.harbor.library.service.AddressNotAllowedException;
 import io.binarycodes.harbor.library.service.BookmarkService;
@@ -56,6 +57,12 @@ public class SaveLinkDialog extends Dialog {
     private LinkDraft draft = new LinkDraft();
     private boolean fetching;
 
+    /**
+     * The bookmark being edited, or null when the dialog is saving a new link. It is
+     * what tells {@link #commit()} whether to add or to overwrite.
+     */
+    private String editingId;
+
     public SaveLinkDialog(BookmarkService bookmarkService, MetadataResolver metadataResolver,
             Consumer<Bookmark> onSaved) {
         this.bookmarkService = bookmarkService;
@@ -77,12 +84,51 @@ public class SaveLinkDialog extends Dialog {
      * you saved is a dialog that saves it twice.
      */
     public void openBlank() {
+        editingId = null;
         draft = new LinkDraft();
         binder.setBean(draft);
         tags.setValue(List.of());
+        setHeaderTitle(getTranslation("save.title"));
+        saveButton.setText(getTranslation("save.submit"));
         showReview(false);
         open();
         url.focus();
+    }
+
+    /**
+     * The same dialog, opened over a bookmark that already exists. The review fields
+     * are shown straight away because there is nothing to fetch before they can be
+     * filled in — the page was read when it was saved.
+     */
+    public void openFor(Bookmark bookmark) {
+        editingId = bookmark.id();
+        draft = draftOf(bookmark);
+        binder.setBean(draft);
+        tags.setValue(bookmark.tags());
+        setHeaderTitle(getTranslation("save.edit.title"));
+        saveButton.setText(getTranslation("save.edit.submit"));
+        showSummary(bookmark.site(), bookmark.type(), "save.edit.saved");
+        showReview(true);
+        open();
+        title.focus();
+    }
+
+    /**
+     * Everything the dialog can edit, plus the fetched details it must carry across so
+     * that saving without a re-fetch does not discard the article itself.
+     */
+    private static LinkDraft draftOf(Bookmark bookmark) {
+        LinkDraft existing = new LinkDraft();
+        existing.setUrl(bookmark.url());
+        existing.setTitle(bookmark.title());
+        existing.setDescription(bookmark.description());
+        existing.setSite(bookmark.site());
+        existing.setTags(bookmark.tags());
+        existing.setType(bookmark.type());
+        existing.setReadLater(bookmark.readLater());
+        existing.setReadingMinutes(bookmark.readingMinutes());
+        existing.setContent(bookmark.content());
+        return existing;
     }
 
     private void bindFields() {
@@ -197,7 +243,19 @@ public class SaveLinkDialog extends Dialog {
         commit();
     }
 
+    /**
+     * The callback reports the stored bookmark whether it was just created or just
+     * edited, and what that means is the owner's decision: the sidebar's dialog opens
+     * a newly saved link in the reader, while the reader's own redraws the article it
+     * is already showing.
+     */
     private void commit() {
+        if (editingId != null) {
+            bookmarkService.update(editingId, draft);
+            close();
+            bookmarkService.findById(editingId).ifPresent(onSaved);
+            return;
+        }
         Bookmark saved = bookmarkService.add(draft);
         close();
         onSaved.accept(saved);
@@ -261,15 +319,17 @@ public class SaveLinkDialog extends Dialog {
             draft.setTags(metadata.tags());
         }
         binder.setBean(draft);
+        showSummary(metadata.site(), metadata.type(), "save.fetched");
+    }
 
-        Span fetched = new Span(VaadinIcon.CHECK.create(), new Span(getTranslation("save.fetched")));
-        fetched.addClassName("save-link-fetched");
-        Span origin = new Span(getTranslation("save.origin", metadata.site(),
-                getTranslation(metadata.type().translationKey())));
+    private void showSummary(String site, BookmarkType type, String statusKey) {
+        Span status = new Span(VaadinIcon.CHECK.create(), new Span(getTranslation(statusKey)));
+        status.addClassName("save-link-fetched");
+        Span origin = new Span(getTranslation("save.origin", site, getTranslation(type.translationKey())));
         origin.addClassName("save-link-origin");
 
         reviewSummary.removeAll();
-        reviewSummary.add(CoverTile.forSite(metadata.site()), new Div(fetched, origin));
+        reviewSummary.add(CoverTile.forSite(site), new Div(status, origin));
     }
 
     private void showReview(boolean visible) {

@@ -157,6 +157,10 @@
     background: var(--aura-background-color);
 }
 
+.edit-bookmark-button {
+    flex-shrink: 0;
+}
+
 .delete-bookmark-button {
     flex-shrink: 0;
     color: var(--color-danger);
@@ -166,8 +170,8 @@
     background: var(--color-danger-surface);
 }
 
-/* Trailing the footer's metadata, so it sits in the card's bottom-right corner. */
-.bookmark-card .delete-bookmark-button {
+/* Trailing the footer's metadata, so the pair sits in the card's bottom-right corner. */
+.bookmark-card .edit-bookmark-button {
     margin-left: auto;
 }
 
