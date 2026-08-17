@@ -99,9 +99,7 @@ task_preview() {
     task_run
 }
 
-# Unit tests plus the Playwright integration tests. Needs the same
-# commercial-license flag as `package`, because the ITs run against a production
-# bundle build.
+# Unit tests plus the Playwright integration tests, against a production build.
 #
 # -Pit is what puts the app in production mode; without it the ITs open a
 # dev-mode page and find an empty screen. The bundles are cleared first because a
@@ -112,15 +110,13 @@ task_preview() {
 task_verify() {
     resolve_java_home
     clear_bundles
-    run_mvn clean verify -Pit -Dvaadin.commercialWithBanner
+    run_mvn clean verify -Pit
 }
 
-# Full production build. The production bundle build runs the Vaadin Charts
-# commercial-license check; -Dvaadin.commercialWithBanner lets it build with a
-# watermark when no license is configured.
+# Full production build.
 task_package() {
     resolve_java_home
-    run_mvn clean package -Dvaadin.commercialWithBanner
+    run_mvn clean package
 }
 
 task_clean() {

@@ -56,9 +56,14 @@
     </dependencyManagement>
 
     <dependencies>
+        <!--
+            vaadin-core, not vaadin: Harbor's UI is built entirely from the free
+            components, so pulling the commercial ones in only to leave them unused
+            would put a license check on every build and a secret in every pipeline.
+        -->
         <dependency>
             <groupId>com.vaadin</groupId>
-            <artifactId>vaadin</artifactId>
+            <artifactId>vaadin-core</artifactId>
         </dependency>
         <dependency>
             <groupId>com.vaadin</groupId>

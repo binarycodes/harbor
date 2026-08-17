@@ -24,8 +24,6 @@ target "app" {
     GIT_SHA     = GIT_SHA
   }
 
-  secret = ["id=vaadin_license,env=VAADIN_SERVER_LICENSE"]
-
   tags = [
     "${REGISTRY}/${NAMESPACE}/${TAG_NAME}:${APP_VERSION}",
     "${REGISTRY}/${NAMESPACE}/${TAG_NAME}:latest",

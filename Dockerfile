@@ -7,9 +7,7 @@ ARG GIT_SHA
 RUN test -n "$GIT_SHA" || (echo "GIT_SHA build arg is required (the deployed commit SHA)" && false)
 WORKDIR /app
 COPY . .
-RUN --mount=type=secret,id=vaadin_license,required=true \
-    mvn --batch-mode --no-transfer-progress \
-        -Dvaadin.offlineKey="$(cat /run/secrets/vaadin_license)" \
+RUN mvn --batch-mode --no-transfer-progress \
         -Dbuild.commit=${GIT_SHA} clean package
 
 
