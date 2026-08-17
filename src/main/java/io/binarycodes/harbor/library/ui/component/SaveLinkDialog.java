@@ -34,9 +34,9 @@ import io.binarycodes.harbor.library.service.MetadataResolver;
  * wrong, and file it.
  *
  * <p>Reading the page means waiting on a stranger's web server, so the fetch runs
- * off the UI thread and the dialog is pushed its result. Saving without fetching
- * first is allowed and does the fetch on the way, because the reader's intent was
- * to save the link either way.
+ * off the UI thread and the dialog is pushed its result. Nothing can be saved until
+ * that read succeeds: a library of links whose pages were never reachable is a
+ * library of guesses, and the reader would have no article to come back to.
  */
 public class SaveLinkDialog extends Dialog {
 
@@ -57,6 +57,12 @@ public class SaveLinkDialog extends Dialog {
 
     private LinkDraft draft = new LinkDraft();
     private boolean fetching;
+
+    /**
+     * Whether the page behind the current URL has actually been read. Nothing can be
+     * saved until it has, so a link that cannot be fetched cannot be filed.
+     */
+    private boolean pageRead;
 
     /**
      * The bookmark being edited, or null when the dialog is saving a new link. It is
@@ -92,6 +98,8 @@ public class SaveLinkDialog extends Dialog {
         setHeaderTitle(getTranslation("save.title"));
         saveButton.setText(getTranslation("save.submit"));
         showReview(false);
+        pageRead = false;
+        updateSubmitState();
         open();
         url.focus();
     }
@@ -110,6 +118,8 @@ public class SaveLinkDialog extends Dialog {
         saveButton.setText(getTranslation("save.edit.submit"));
         showSummary(bookmark.site(), bookmark.type(), "save.edit.saved");
         showReview(true);
+        pageRead = true;
+        updateSubmitState();
         open();
         title.focus();
     }
@@ -159,11 +169,13 @@ public class SaveLinkDialog extends Dialog {
         url.setClearButtonVisible(true);
         url.setValueChangeMode(ValueChangeMode.EAGER);
         url.setWidthFull();
-        // What was fetched no longer describes what is typed.
+        // What was fetched no longer describes what is typed, so the gate closes again.
         url.addValueChangeListener(event -> {
-            if (review.isVisible()) {
+            if (pageRead) {
                 draft.setSite(null);
                 showReview(false);
+                pageRead = false;
+                updateSubmitState();
             }
         });
 
@@ -224,24 +236,43 @@ public class SaveLinkDialog extends Dialog {
         if (fetching || !binder.validate().isOk()) {
             return;
         }
-        resolveInBackground(metadata -> {
-            applyMetadata(metadata);
-            showReview(true);
-        });
+        resolveInBackground(this::reviewFetched);
     }
 
-    private void save() {
-        if (fetching || !binder.validate().isOk()) {
+    /**
+     * A page that could not be read leaves nothing worth saving — what came back was
+     * inferred from the URL, not from the page — so the review stays shut and the
+     * reader is told to check the link rather than being handed fields to fill in.
+     */
+    private void reviewFetched(LinkMetadata metadata) {
+        if (!metadata.pageRead()) {
+            pageRead = false;
+            showReview(false);
+            url.setErrorMessage(getTranslation("save.url.unreadable"));
+            url.setInvalid(true);
+            updateSubmitState();
             return;
         }
-        if (draft.getSite() == null || draft.getSite().isBlank()) {
-            resolveInBackground(metadata -> {
-                applyMetadata(metadata);
-                commit();
-            });
+        applyMetadata(metadata);
+        showReview(true);
+        pageRead = true;
+        updateSubmitState();
+    }
+
+    /**
+     * Saving never fetches on the reader's behalf: the page has to have been read
+     * first, which is what stops an unreachable link being filed as if it were an
+     * article. An edit is already past that gate unless its URL changed.
+     */
+    private void save() {
+        if (fetching || !pageRead || !binder.validate().isOk()) {
             return;
         }
         commit();
+    }
+
+    private void updateSubmitState() {
+        saveButton.setEnabled(!fetching && pageRead);
     }
 
     /**
@@ -354,7 +385,7 @@ public class SaveLinkDialog extends Dialog {
     private void setFetching(boolean inProgress) {
         fetching = inProgress;
         fetchButton.setEnabled(!inProgress);
-        saveButton.setEnabled(!inProgress);
+        updateSubmitState();
         if (inProgress) {
             Icon spinner = VaadinIcon.SPINNER.create();
             spinner.addClassName("save-link-spinner");

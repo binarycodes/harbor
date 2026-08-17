@@ -1,6 +1,7 @@
 package io.binarycodes.harbor.library.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -114,6 +115,27 @@ class OpenGraphMetadataResolverTest {
             assertEquals(BookmarkType.PAPER, metadata.type());
             assertEquals(List.of("Research", "AI"), metadata.tags());
             assertTrue(metadata.content().isEmpty());
+        }
+
+        /**
+         * The description is a consolation prize, not a read. Saying so is what lets the
+         * dialog refuse to file a link whose page nobody could reach.
+         */
+        @Test
+        @DisplayName("says the page was not read")
+        void reportsThePageWasNotRead() {
+            OpenGraphMetadataResolver resolver = new OpenGraphMetadataResolver(url -> {
+                throw new IOException("refused");
+            });
+
+            assertFalse(resolver.resolve("https://arxiv.org/abs/1706.03762").pageRead());
+        }
+
+        @Test
+        @DisplayName("but says it was when the page came back")
+        void reportsThePageWasRead() {
+            assertTrue(resolve("<html><head><title>Read</title></head><body>%s</body></html>"
+                    .formatted(BODY)).pageRead());
         }
     }
 

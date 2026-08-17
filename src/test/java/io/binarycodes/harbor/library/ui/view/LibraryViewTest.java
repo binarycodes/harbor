@@ -184,6 +184,43 @@ class LibraryViewTest extends SpringBrowserlessTest {
         assertEquals(0, bookmarkService.count());
     }
 
+    /**
+     * The gate that stops an unreachable link being filed as though it were an
+     * article: nothing is saveable until the page behind the URL has been read.
+     */
+    @Test
+    @DisplayName("refuses to save a link until its page has been fetched")
+    void requiresAFetchBeforeSaving() throws InterruptedException {
+        navigate(LibraryView.class);
+        find(Button.class).withCaption("Save a link").single().click();
+        SaveLinkDialog dialog = find(SaveLinkDialog.class).single();
+        find(TextField.class, dialog).withLabel("URL").single().setValue("https://example.com/unread");
+
+        assertFalse(submitButton(dialog).isEnabled());
+
+        find(Button.class, dialog).withCaption("Fetch").single().click();
+        awaitSubmitEnabled(dialog);
+
+        assertTrue(submitButton(dialog).isEnabled());
+        assertEquals(0, bookmarkService.count());
+    }
+
+    private Button submitButton(SaveLinkDialog dialog) {
+        return find(Button.class, dialog).withCaption("Save to library").single();
+    }
+
+    /**
+     * The fetch runs off the UI thread and hands its result back through
+     * {@code ui.access}, so the button has to be looked up again each time rather than
+     * held on to — a reference taken before the round trip does not see the change.
+     */
+    private void awaitSubmitEnabled(SaveLinkDialog dialog) throws InterruptedException {
+        for (int attempt = 0; attempt < 200 && !submitButton(dialog).isEnabled(); attempt++) {
+            Thread.sleep(10);
+            roundTrip();
+        }
+    }
+
     @Test
     @DisplayName("edits a bookmark in place, keeping its notes and highlights")
     void editsABookmarkInPlace() {

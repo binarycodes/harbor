@@ -19,10 +19,14 @@ import io.binarycodes.harbor.library.domain.BookmarkType;
  * and description, and finally the article text for the reader.
  *
  * <p>Anything the page does not tell us falls through to
- * {@link UrlHeuristicMetadata}, and so does any failure to reach it at all —
- * saving a link must work offline, behind a paywall, and against a host that
- * refuses robots. An address the deployment refuses to fetch is the exception: that
- * is a decision worth reporting rather than a page that happened to be unreachable.
+ * {@link UrlHeuristicMetadata}, and so does any failure to reach it at all: a link
+ * can still be described when the host is down, behind a paywall, or refusing
+ * robots. The result reports which of the two happened through
+ * {@link LinkMetadata#pageRead()}, leaving the caller to decide whether a
+ * description is enough to act on — the save dialog holds out for a real read.
+ *
+ * <p>An address the deployment refuses to fetch is the exception: that is a decision
+ * worth reporting rather than a page that happened to be unreachable.
  */
 @Component
 public class OpenGraphMetadataResolver implements MetadataResolver {
@@ -60,7 +64,8 @@ public class OpenGraphMetadataResolver implements MetadataResolver {
                 fromUrl.tags(),
                 typeOf(document, fromUrl.type()),
                 ReadingTime.minutes(content),
-                content);
+                content,
+                true);
     }
 
     /**

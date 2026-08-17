@@ -28,6 +28,6 @@ public class StubMetadataConfiguration {
     @Primary
     public MetadataResolver stubMetadataResolver() {
         return url -> new LinkMetadata(RESOLVED_SITE, RESOLVED_TITLE, RESOLVED_DESCRIPTION, RESOLVED_TAGS,
-                BookmarkType.ARTICLE, 7, "## A heading\n\n" + RESOLVED_PASSAGE);
+                BookmarkType.ARTICLE, 7, "## A heading\n\n" + RESOLVED_PASSAGE, true);
     }
 }
