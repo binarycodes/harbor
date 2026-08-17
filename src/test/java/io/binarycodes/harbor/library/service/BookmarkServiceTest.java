@@ -223,7 +223,7 @@ class BookmarkServiceTest {
         }
 
         @Test
-        @DisplayName("sorts by title, by reading time, and by recency")
+        @DisplayName("sorts by title and by recency")
         void sortsEveryWay() {
             LibraryQuery base = LibraryQuery.of(LibraryScope.ALL);
 
@@ -233,7 +233,6 @@ class BookmarkServiceTest {
             assertEquals(
                     List.of("Deep Work", "Local-first software", "An Interactive Guide to Flexbox"),
                     titles(base.withSortMode(SortMode.RECENT)));
-            assertEquals(3, service.find(base.withSortMode(SortMode.READING_TIME)).size());
         }
 
         @Test
@@ -246,9 +245,6 @@ class BookmarkServiceTest {
             assertEquals(4, counts.size());
         }
 
-        private List<String> titles(LibraryQuery query) {
-            return service.find(query).stream().map(Bookmark::title).toList();
-        }
     }
 
     @Nested
@@ -428,6 +424,44 @@ class BookmarkServiceTest {
         }
     }
 
+    /**
+     * The shared fixture gives every bookmark the same reading time, which is why
+     * these build their own set: an order can only be asserted against lengths that
+     * actually differ.
+     */
+    @Nested
+    @DisplayName("when sorting by how long a read is")
+    class ReadingTimeOrder {
+
+        @BeforeEach
+        void saveThreeLengths() {
+            service.load();
+            saveMinutes("https://example.com/medium", "Medium", 9);
+            saveMinutes("https://example.com/long", "Long", 30);
+            saveMinutes("https://example.com/short", "Short", 2);
+        }
+
+        @Test
+        @DisplayName("shortest first puts the quickest read at the top")
+        void sortsShortestFirst() {
+            assertEquals(List.of("Short", "Medium", "Long"), titles(
+                    LibraryQuery.of(LibraryScope.ALL).withSortMode(SortMode.READING_TIME_SHORTEST)));
+        }
+
+        @Test
+        @DisplayName("longest first turns the same list around")
+        void sortsLongestFirst() {
+            assertEquals(List.of("Long", "Medium", "Short"), titles(
+                    LibraryQuery.of(LibraryScope.ALL).withSortMode(SortMode.READING_TIME_LONGEST)));
+        }
+
+        private void saveMinutes(String url, String title, int minutes) {
+            LinkDraft draft = draft(url, title);
+            draft.setReadingMinutes(minutes);
+            service.add(draft);
+        }
+    }
+
     @Nested
     @DisplayName("saving a link that is already saved")
     class Duplicates {
@@ -503,6 +537,10 @@ class BookmarkServiceTest {
                     () -> service.update(id, draft("https://example.com/two", "One")));
             assertEquals("One", service.findById(id).orElseThrow().title());
         }
+    }
+
+    private List<String> titles(LibraryQuery query) {
+        return service.find(query).stream().map(Bookmark::title).toList();
     }
 
     private Bookmark save(String url, String title) {

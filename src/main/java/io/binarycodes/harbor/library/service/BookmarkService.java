@@ -255,7 +255,8 @@ public class BookmarkService {
         return switch (query.sortMode()) {
             case RECENT -> Comparator.comparingLong(Bookmark::savedAt).reversed();
             case TITLE -> Comparator.comparing(Bookmark::title, collator());
-            case READING_TIME -> Comparator.comparingInt(Bookmark::readingMinutes);
+            case READING_TIME_SHORTEST -> Comparator.comparingInt(Bookmark::readingMinutes);
+            case READING_TIME_LONGEST -> Comparator.comparingInt(Bookmark::readingMinutes).reversed();
         };
     }
 

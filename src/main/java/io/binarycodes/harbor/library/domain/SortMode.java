@@ -9,7 +9,8 @@ public enum SortMode {
 
     RECENT,
     TITLE,
-    READING_TIME;
+    READING_TIME_SHORTEST,
+    READING_TIME_LONGEST;
 
     public String translationKey() {
         return "library.sort." + name().toLowerCase(Locale.ROOT);

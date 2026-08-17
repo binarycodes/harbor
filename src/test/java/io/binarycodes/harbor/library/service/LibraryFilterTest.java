@@ -125,14 +125,14 @@ class LibraryFilterTest {
     void buildsQueryForScope() {
         filter.toggleTag("Web");
         filter.setSearchText("flex");
-        filter.setSortMode(SortMode.READING_TIME);
+        filter.setSortMode(SortMode.READING_TIME_LONGEST);
 
         LibraryQuery query = filter.query(LibraryScope.READ_LATER);
 
         assertEquals(LibraryScope.READ_LATER, query.scope());
         assertEquals(Set.of("Web"), query.tags());
         assertEquals("flex", query.searchText());
-        assertEquals(SortMode.READING_TIME, query.sortMode());
+        assertEquals(SortMode.READING_TIME_LONGEST, query.sortMode());
     }
 
     @Test
