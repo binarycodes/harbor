@@ -1,0 +1,33 @@
+/*
+ * The only place in the application where literal color values appear. Anything
+ * Aura already computes for the active color scheme — text, borders, surfaces,
+ * the accent — is used through its own property rather than redefined here. The
+ * tokens below cover what Aura has no equivalent for: the ten-color cover palette
+ * that gives every bookmark its monogram tile, the highlight marker, and a third
+ * text level below Aura's secondary. Values that sit under white text stay fixed
+ * across color schemes; everything else adapts with light-dark().
+ */
+
+html {
+    --color-cover-0: rgb(50, 102, 228);
+    --color-cover-1: rgb(0, 180, 176);
+    --color-cover-2: rgb(179, 50, 157);
+    --color-cover-3: rgb(95, 140, 235);
+    --color-cover-4: rgb(3, 134, 131);
+    --color-cover-5: rgb(214, 86, 176);
+    --color-cover-6: rgb(190, 70, 0);
+    --color-cover-7: rgb(120, 150, 2);
+    --color-cover-8: rgb(103, 125, 1);
+    --color-cover-9: rgb(225, 120, 40);
+    --color-cover-text: rgba(255, 255, 255, 0.92);
+
+    --color-text-tertiary: color-mix(in srgb, var(--vaadin-text-color-secondary) 72%,
+            var(--aura-background-color));
+
+    --color-highlight: var(--aura-yellow);
+    --color-highlight-mark: light-dark(rgba(255, 220, 0, 0.5), rgba(255, 220, 0, 0.34));
+    --color-highlight-text: light-dark(var(--vaadin-text-color), rgb(255, 255, 255));
+
+    --color-storage-online: var(--aura-green);
+    --color-storage-online-ring: color-mix(in srgb, var(--aura-green) 20%, transparent);
+}

@@ -1,0 +1,147 @@
+package io.binarycodes.harbor.library.ui.view;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+import java.util.List;
+
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
+import org.springframework.test.context.ContextConfiguration;
+
+import com.vaadin.browserless.SpringBrowserlessTest;
+
+import io.binarycodes.harbor.BrowserlessStorageConfiguration;
+import io.binarycodes.harbor.StubMetadataConfiguration;
+import io.binarycodes.harbor.library.domain.BookmarkType;
+import io.binarycodes.harbor.library.domain.LibraryQuery;
+import io.binarycodes.harbor.library.domain.LibraryScope;
+import io.binarycodes.harbor.library.domain.LinkDraft;
+import io.binarycodes.harbor.library.service.BookmarkService;
+import io.binarycodes.harbor.library.service.LibraryFilter;
+import io.binarycodes.harbor.library.ui.component.BookmarkCard;
+
+@SpringBootTest
+@ContextConfiguration(classes = { StubMetadataConfiguration.class, BrowserlessStorageConfiguration.class })
+@DisplayName("The library screen")
+class LibraryViewTest extends SpringBrowserlessTest {
+
+    /**
+     * The library and the filter are session-scoped, and the session only exists
+     * once the base class has built it — later than field injection would run. They
+     * are looked up per test instead.
+     */
+    @Autowired
+    private ApplicationContext applicationContext;
+
+    private BookmarkService bookmarkService;
+    private LibraryFilter libraryFilter;
+
+    @BeforeEach
+    void startFromAnEmptyLibrary() {
+        bookmarkService = applicationContext.getBean(BookmarkService.class);
+        libraryFilter = applicationContext.getBean(LibraryFilter.class);
+        bookmarkService.load();
+        // The stub storage is a singleton, so what one test saved is still there for
+        // the next one. Each test starts from the empty library a first visit sees.
+        bookmarkService.find(LibraryQuery.of(LibraryScope.ALL))
+                .forEach(bookmark -> bookmarkService.remove(bookmark.id()));
+        libraryFilter.clearTags();
+        libraryFilter.setSearchText("");
+    }
+
+    @Test
+    @DisplayName("shows nothing but an invitation on a first visit")
+    void showsEmptyStateOnFirstVisit() {
+        navigate(LibraryView.class);
+
+        assertEquals(0, cards().size());
+    }
+
+    @Test
+    @DisplayName("shows a card for every saved bookmark")
+    void showsACardPerBookmark() {
+        save("https://example.com/one", "One");
+        save("https://example.com/two", "Two");
+
+        navigate(LibraryView.class);
+
+        assertEquals(2, cards().size());
+    }
+
+    @Test
+    @DisplayName("narrows to what the search box matches")
+    void narrowsOnSearch() {
+        save("https://example.com/flexbox", "An Interactive Guide to Flexbox");
+        save("https://example.com/deep-work", "Deep Work");
+        navigate(LibraryView.class);
+
+        libraryFilter.setSearchText("flexbox");
+
+        assertEquals(1, cards().size());
+    }
+
+    @Test
+    @DisplayName("narrows to the selected tag")
+    void narrowsOnTag() {
+        save("https://example.com/one", "One", List.of("Web"));
+        save("https://example.com/two", "Two", List.of("Science"));
+        navigate(LibraryView.class);
+
+        libraryFilter.toggleTag("Web");
+
+        assertEquals(1, cards().size());
+    }
+
+    @Test
+    @DisplayName("keeps read later to what was queued")
+    void separatesReadLater() {
+        save("https://example.com/one", "One");
+        String queued = save("https://example.com/two", "Two");
+        bookmarkService.toggleReadLater(queued);
+
+        navigate(ReadLaterView.class);
+
+        assertEquals(1, cards().size());
+    }
+
+    @Test
+    @DisplayName("survives a return visit, notes and highlights included")
+    void restoresAcrossVisits() {
+        String id = save("https://example.com/one", "One");
+        bookmarkService.updateNotes(id, "worth remembering");
+        bookmarkService.addHighlight(id, "a passage worth keeping");
+
+        navigate(LibraryView.class);
+
+        assertTrue(bookmarkService.findById(id).orElseThrow().hasNotes());
+        assertFalse(bookmarkService.withHighlights().isEmpty());
+        assertEquals(1, cards().size());
+    }
+
+    private List<BookmarkCard> cards() {
+        return findInView(BookmarkCard.class).all();
+    }
+
+    private String save(String url, String title) {
+        return save(url, title, List.of("Reading"));
+    }
+
+    private String save(String url, String title, List<String> tags) {
+        LinkDraft draft = new LinkDraft();
+        draft.setUrl(url);
+        draft.setTitle(title);
+        draft.setSite("example.com");
+        draft.setDescription("Saved from example.com");
+        draft.setType(BookmarkType.ARTICLE);
+        draft.setReadingMinutes(7);
+        draft.setContent("## Body\n\nSome words.");
+        draft.setTags(tags);
+        return bookmarkService.add(draft).id();
+    }
+}

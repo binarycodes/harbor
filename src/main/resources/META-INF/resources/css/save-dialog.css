@@ -1,0 +1,153 @@
+/*
+ * The save-a-link dialog: the URL row with its fetch button and the review step
+ * that appears once the page has been read.
+ */
+
+.save-link-body {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+}
+
+.save-link-subtitle {
+    font-size: var(--aura-font-size-s);
+    color: var(--vaadin-text-color-secondary);
+}
+
+.save-link-url-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.save-link-url-row {
+    align-items: flex-end;
+    gap: var(--vaadin-gap-s);
+}
+
+.save-link-fetch {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+.save-link-hint {
+    font-size: var(--aura-font-size-xs);
+    color: var(--color-text-tertiary);
+}
+
+.save-link-review {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.save-link-summary {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+    padding: 13px;
+    border: 1px solid var(--vaadin-border-color-secondary);
+    border-radius: var(--vaadin-radius-m);
+    background: var(--aura-surface-color);
+}
+
+.save-link-summary .cover-tile {
+    width: 46px;
+    height: 46px;
+    flex-shrink: 0;
+    padding: 0;
+    border-radius: var(--vaadin-radius-m);
+    align-items: center;
+    justify-content: center;
+}
+
+.save-link-summary .cover-tile-monogram {
+    font-size: var(--aura-font-size-xl);
+}
+
+.save-link-fetched {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: var(--aura-font-size-xs);
+    font-weight: var(--aura-font-weight-medium);
+    color: var(--aura-green-text);
+}
+
+.save-link-fetched vaadin-icon {
+    --vaadin-icon-size: 0.85rem;
+}
+
+.save-link-origin {
+    display: block;
+    font-size: var(--aura-font-size-s);
+    color: var(--vaadin-text-color-secondary);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.save-link-spinner {
+    animation: save-link-spin 0.8s linear infinite;
+}
+
+@keyframes save-link-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .save-link-spinner {
+        animation: none;
+    }
+}
+
+.tag-chips-field-wrapper {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+    min-height: 40px;
+    padding: 4px 8px;
+    border: 1px solid var(--vaadin-border-color);
+    border-radius: var(--vaadin-radius-m);
+    background: var(--aura-surface-color);
+}
+
+.tag-chips-field-wrapper:focus-within {
+    border-color: var(--aura-accent-color);
+}
+
+.tag-chips-field-chips {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.tag-chips-field-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    height: 26px;
+    padding: 0 4px 0 10px;
+    border-radius: 9999px;
+    background: var(--aura-accent-surface);
+    color: var(--aura-accent-text-color);
+    font-size: var(--aura-font-size-s);
+    font-weight: var(--aura-font-weight-medium);
+}
+
+.tag-chips-field-remove {
+    --vaadin-button-height: 1.25rem;
+    --vaadin-icon-size: 0.8rem;
+    margin: 0;
+    padding: 0;
+    color: inherit;
+}
+
+.tag-chips-field-input {
+    flex: 1;
+    min-width: 90px;
+}

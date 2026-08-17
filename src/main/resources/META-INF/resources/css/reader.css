@@ -1,0 +1,239 @@
+/*
+ * The reader: article typography, highlight markers in the body, the floating
+ * selection button, and the notes / highlights side panel. The measure is capped
+ * at 660px because a comfortable line length matters more here than filling the
+ * window.
+ */
+
+.reader-view {
+    min-height: 0;
+}
+
+.reader-header {
+    gap: var(--vaadin-gap-m);
+    padding: 13px 20px;
+    border-bottom: 1px solid var(--vaadin-border-color-secondary);
+}
+
+.reader-back,
+.reader-original {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--vaadin-gap-s);
+    height: 34px;
+    padding: 0 12px;
+    border: 1px solid var(--vaadin-border-color-secondary);
+    border-radius: var(--vaadin-radius-m);
+    color: var(--vaadin-text-color);
+    font-size: var(--aura-font-size-s);
+    font-weight: var(--aura-font-weight-medium);
+    text-decoration: none;
+}
+
+.reader-back:hover,
+.reader-original:hover {
+    background: var(--vaadin-background-container);
+}
+
+.reader-origin {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--vaadin-gap-s);
+    min-width: 0;
+    font-size: var(--aura-font-size-s);
+    color: var(--color-text-tertiary);
+}
+
+.reader-origin span {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.reader-read-later.queued {
+    color: var(--aura-accent-text-color);
+}
+
+.reader-columns {
+    display: flex;
+    width: 100%;
+    min-height: 0;
+}
+
+.reader-article {
+    flex: 1;
+    min-width: 0;
+    overflow-y: auto;
+    padding: 34px 40px 80px;
+    scrollbar-width: thin;
+}
+
+.reader-article > * {
+    max-width: 660px;
+    margin-inline: auto;
+}
+
+.reader-title {
+    margin: 0 0 14px;
+    font-size: 30px;
+    font-weight: var(--aura-font-weight-semibold);
+    line-height: 1.2;
+    letter-spacing: -0.02em;
+}
+
+.reader-byline {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--vaadin-gap-l);
+    padding-bottom: 22px;
+    margin-bottom: var(--vaadin-gap-s);
+    border-bottom: 1px solid var(--vaadin-border-color-secondary);
+    font-size: var(--aura-font-size-s);
+    color: var(--vaadin-text-color-secondary);
+}
+
+.reader-byline-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.reader-body {
+    font-size: var(--aura-font-size-l);
+    line-height: 1.75;
+}
+
+.reader-mark {
+    background: var(--color-highlight-mark);
+    color: var(--color-highlight-text);
+    border-radius: var(--vaadin-radius-s);
+    padding: 0 1px;
+    box-shadow: 0 0 0 2px var(--color-highlight-mark);
+}
+
+.selection-highlight-button {
+    position: fixed;
+    z-index: 60;
+    transform: translate(-50%, -130%);
+    white-space: nowrap;
+    --vaadin-button-background: var(--vaadin-text-color);
+    --vaadin-button-text-color: var(--aura-background-color);
+    box-shadow: var(--aura-shadow-m);
+}
+
+.reader-side-panel {
+    width: 392px;
+    flex-shrink: 0;
+    border-inline-start: 1px solid var(--vaadin-border-color-secondary);
+}
+
+.notes-editor {
+    min-height: 0;
+}
+
+.notes-editor-bar {
+    padding: 11px 14px 9px;
+}
+
+.notes-editor-modes {
+    display: inline-flex;
+    gap: 2px;
+    padding: 3px;
+    border: 1px solid var(--vaadin-border-color-secondary);
+    border-radius: var(--vaadin-radius-m);
+}
+
+.notes-editor-mode.selected {
+    background: var(--aura-accent-color);
+    color: var(--aura-accent-contrast-color);
+}
+
+.notes-editor-format {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-size: var(--aura-font-size-xs);
+    color: var(--color-text-tertiary);
+}
+
+.notes-editor-format vaadin-icon {
+    --vaadin-icon-size: 0.85rem;
+}
+
+.notes-editor-input,
+.notes-editor-preview {
+    margin: 0 14px 14px;
+}
+
+.notes-editor-preview {
+    overflow-y: auto;
+    padding: 13px 15px;
+    border: 1px solid var(--vaadin-border-color-secondary);
+    border-radius: var(--vaadin-radius-m);
+    scrollbar-width: thin;
+}
+
+.highlight-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vaadin-gap-s);
+    padding: 14px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.highlight-list-item {
+    position: relative;
+}
+
+.highlight-passage {
+    margin: 0;
+    padding: 11px 40px 11px 13px;
+    border: 1px solid var(--vaadin-border-color-secondary);
+    border-inline-start: 3px solid var(--color-highlight);
+    border-radius: var(--vaadin-radius-m);
+    background: var(--aura-surface-color);
+    font-size: var(--aura-font-size-s);
+    line-height: 1.55;
+}
+
+.highlight-remove {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    --vaadin-button-height: 1.4rem;
+    --vaadin-icon-size: 0.85rem;
+    margin: 0;
+    padding: 0;
+}
+
+.highlight-list-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: var(--vaadin-gap-s);
+    padding: 40px 16px;
+    text-align: center;
+    font-size: var(--aura-font-size-s);
+    color: var(--color-text-tertiary);
+}
+
+@media (max-width: 1000px) {
+    .reader-columns {
+        flex-direction: column;
+        overflow-y: auto;
+    }
+
+    .reader-article {
+        padding: 24px 20px 40px;
+        overflow: visible;
+    }
+
+    .reader-side-panel {
+        width: 100%;
+        min-height: 320px;
+        border-inline-start: none;
+        border-top: 1px solid var(--vaadin-border-color-secondary);
+    }
+}

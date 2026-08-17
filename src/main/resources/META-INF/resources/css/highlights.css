@@ -1,0 +1,76 @@
+/*
+ * The highlights screen, where every saved passage is grouped under the
+ * bookmark it came from.
+ */
+
+.highlights-view {
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.highlight-groups {
+    display: flex;
+    width: 100%;
+    flex-direction: column;
+    gap: 22px;
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 26px 22px;
+}
+
+.highlight-group {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vaadin-gap-m);
+}
+
+.highlight-group-heading {
+    display: flex;
+    align-items: center;
+    gap: 11px;
+    border: none;
+    background: transparent;
+    padding: 0;
+    font: inherit;
+    text-align: left;
+    color: inherit;
+    cursor: var(--vaadin-clickable-cursor);
+}
+
+.highlight-group-heading .cover-tile {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    border-radius: var(--vaadin-radius-m);
+    align-items: center;
+    justify-content: center;
+}
+
+.highlight-group-heading .cover-tile-monogram {
+    font-size: var(--aura-font-size-m);
+}
+
+.highlight-group-title {
+    display: block;
+    font-size: var(--aura-font-size-l);
+    font-weight: var(--aura-font-weight-semibold);
+}
+
+.highlight-group-origin {
+    display: block;
+    font-size: var(--aura-font-size-s);
+    color: var(--color-text-tertiary);
+}
+
+.highlight-group-passages {
+    display: flex;
+    flex-direction: column;
+    gap: var(--vaadin-gap-s);
+    padding-inline-start: 45px;
+}
+
+.highlight-group-passages .highlight-passage {
+    padding-right: 14px;
+    font-size: var(--aura-font-size-m);
+}

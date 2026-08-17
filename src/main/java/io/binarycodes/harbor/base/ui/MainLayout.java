@@ -1,0 +1,117 @@
+package io.binarycodes.harbor.base.ui;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import com.vaadin.flow.component.AttachEvent;
+import com.vaadin.flow.component.DetachEvent;
+import com.vaadin.flow.component.UI;
+import com.vaadin.flow.component.applayout.AppLayout;
+import com.vaadin.flow.component.applayout.DrawerToggle;
+import com.vaadin.flow.component.button.Button;
+import com.vaadin.flow.component.button.ButtonVariant;
+import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.orderedlayout.VerticalLayout;
+import com.vaadin.flow.router.RouteParameters;
+import com.vaadin.flow.shared.Registration;
+
+import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.domain.TagCount;
+import io.binarycodes.harbor.library.service.BookmarkService;
+import io.binarycodes.harbor.library.service.LibraryFilter;
+import io.binarycodes.harbor.library.service.MetadataResolver;
+import io.binarycodes.harbor.library.ui.component.SaveLinkDialog;
+import io.binarycodes.harbor.library.ui.view.ReaderView;
+
+/**
+ * The application shell. The drawer carries navigation and the tag filters; the
+ * views render beside it.
+ *
+ * <p>The library is only known once the browser has answered with what it has
+ * stored, so the sidebar fills itself in from a change listener rather than at
+ * construction.
+ */
+public class MainLayout extends AppLayout {
+
+    private final BookmarkService bookmarkService;
+    private final LibraryFilter libraryFilter;
+    private final LibraryNavigation navigation = new LibraryNavigation();
+    private final TagFilterList tagFilters;
+    private final StorageFooter storageFooter;
+    private final SaveLinkDialog saveLinkDialog;
+    private final List<Registration> registrations = new ArrayList<>();
+
+    public MainLayout(BookmarkService bookmarkService, LibraryFilter libraryFilter,
+            MetadataResolver metadataResolver) {
+        this.bookmarkService = bookmarkService;
+        this.libraryFilter = libraryFilter;
+        tagFilters = new TagFilterList(bookmarkService, libraryFilter);
+        storageFooter = new StorageFooter(bookmarkService);
+        saveLinkDialog = new SaveLinkDialog(bookmarkService, metadataResolver, this::openReader);
+
+        setPrimarySection(Section.DRAWER);
+        addToNavbar(new DrawerToggle());
+        addToDrawer(sidebar());
+    }
+
+    @Override
+    protected void onAttach(AttachEvent attachEvent) {
+        super.onAttach(attachEvent);
+        registrations.add(bookmarkService.addChangeListener(this::onLibraryChanged));
+        registrations.add(libraryFilter.addChangeListener(this::refreshSidebar));
+        bookmarkService.load();
+        refreshSidebar();
+    }
+
+    @Override
+    protected void onDetach(DetachEvent detachEvent) {
+        registrations.forEach(Registration::remove);
+        registrations.clear();
+        super.onDetach(detachEvent);
+    }
+
+    private VerticalLayout sidebar() {
+        VerticalLayout sidebar = new VerticalLayout(new SidebarBrand(), saveLinkButton(), navigation,
+                tagFilters, storageFooter);
+        sidebar.addClassName("sidebar");
+        sidebar.setSizeFull();
+        sidebar.setPadding(false);
+        sidebar.setSpacing(false);
+        sidebar.setFlexGrow(1, tagFilters);
+        return sidebar;
+    }
+
+    private Button saveLinkButton() {
+        Button saveLink = new Button(getTranslation("sidebar.save_link"), VaadinIcon.PLUS.create(),
+                event -> saveLinkDialog.openBlank());
+        saveLink.addThemeVariants(ButtonVariant.PRIMARY);
+        saveLink.addClassName("save-link-button");
+        return saveLink;
+    }
+
+    private void openReader(Bookmark saved) {
+        UI.getCurrent().navigate(ReaderView.class, new RouteParameters(ReaderView.BOOKMARK_ID, saved.id()));
+    }
+
+    /**
+     * A deleted bookmark can take the last use of a tag with it, so a selection
+     * that no longer matches anything is dropped before the sidebar redraws.
+     */
+    private void onLibraryChanged() {
+        libraryFilter.retainTags(knownTags());
+        refreshSidebar();
+    }
+
+    private void refreshSidebar() {
+        navigation.refresh(bookmarkService.count(), bookmarkService.countReadLater(),
+                bookmarkService.countHighlights());
+        tagFilters.refresh();
+        storageFooter.refresh();
+    }
+
+    private Set<String> knownTags() {
+        return bookmarkService.tagCounts().stream().map(TagCount::name).collect(Collectors.toSet());
+    }
+}
