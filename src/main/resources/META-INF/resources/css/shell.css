@@ -144,10 +144,15 @@ vaadin-app-layout:not([overlay])::part(navbar) {
     color: var(--color-text-tertiary);
 }
 
+/*
+    Pinned with an auto margin rather than by leaning on the tag list above it to
+    expand: an empty library hides that list, and a display:none flex child leaves
+    the layout entirely, taking its flex-grow with it and letting the footer ride up.
+*/
 .storage-footer {
     gap: 8px;
     padding: 12px 8px 4px;
-    margin-top: 6px;
+    margin-top: auto;
     border-top: 1px solid var(--vaadin-border-color-secondary);
 }
 
