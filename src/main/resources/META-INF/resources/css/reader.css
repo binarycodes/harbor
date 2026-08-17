@@ -73,8 +73,13 @@
     margin-inline: auto;
 }
 
+/*
+    margin-block, not the margin shorthand: the shared rule above centres every child
+    of the article with margin-inline, and a shorthand here resets that back to zero,
+    leaving the title alone hanging off to the left of its own body text.
+*/
 .reader-title {
-    margin: 0 0 14px;
+    margin-block: 0 14px;
     font-size: 30px;
     font-weight: var(--aura-font-weight-semibold);
     line-height: 1.2;
