@@ -19,9 +19,11 @@ Project-wide rules. Once a pattern is established here, follow it without prompt
 ## 3. Code structure
 
 - One concern per class. Extract the form, each chart (its own class), and the grid; the view stays thin — composition, state transitions, and the one method that ties them together.
-- Components extend the closest Vaadin primitive (`Card`, `Grid<T>`, `Chart`, `VerticalLayout`) and expose a focused API (`setX` / `update` / `getInputs` / `addXChangeListener`).
+- Components extend the closest Vaadin primitive (`Card`, `Grid<T>`, `Chart`, `VerticalLayout`) and expose a focused API (`setX` / `update` / `getInputs` / `addXChangeListener`). Stop extending it when its shadow layout fights the design: `Card` positions its own title/suffix slots, so a row that needs a trailing element pinned while the title truncates is a plain flex layout instead.
+- `Card` implements neither `HasStyle` nor `HasTooltip`. Reach for `getElement().getClassList()`, and don't expect `addClassName` / `getStyle` on it. Same for `Markdown`.
+- Vaadin `Button` takes an icon and a label and nothing else — `add()` is private. A control that needs three pieces of content (a color dot, a name, a count) is a `NativeButton` with `aria-pressed`.
 - Helpers live with the thing they help.
-- Result/projection grids extend `ColumnChooserGrid<T>`, not raw `Grid`. Register each column with `track(header, addColumn(...))` in render order; the view places `createColumnChooser()` in the grid-card header (`H2` + menu in a `HorizontalLayout` with `JustifyContentMode.BETWEEN`).
+- Data grids extend `Grid<T>` directly. Introduce a column-chooser wrapper only when a projection grid actually needs one.
 - Prefer a named private method over a long inline block.
 
 ## 4. Java
@@ -47,16 +49,19 @@ Project-wide rules. Once a pattern is established here, follow it without prompt
 
 - One file per concern; the entry stylesheet holds only `@import` lines.
 - Colors are semantic tokens in `colors.css`, referenced via `var(--color-…)`. No raw hex / rgb / `color-mix` / named colors elsewhere.
-- Dark-mode overrides sit next to their tokens in `colors.css` (`html.dark { … }`).
-- Prefer Vaadin / theme variables over hard-coded values.
+- Light and dark are Aura's `color-scheme`, not a class on `html`. Own tokens adapt with the CSS `light-dark()` function; the scheme is set from Java with `Page::setColorScheme`. There is no `html.dark` selector.
+- Prefer Vaadin / theme variables over hard-coded values: `--vaadin-*` base properties (`--vaadin-text-color`, `--vaadin-border-color`, `--vaadin-radius-m`, `--vaadin-gap-s`) and `--aura-*` for what only Aura defines (`--aura-accent-color`, `--aura-surface-color`, `--aura-font-size-s`, `--aura-shadow-xs`).
+- Style Vaadin components through their own custom properties (`--vaadin-button-background`) rather than `background` on the host, which the component's base styles win against.
+- `box-sizing: border-box` is set globally in `shell.css`. Padded full-width containers otherwise overflow their parent at phone widths.
 - One-paragraph header comment per file; no section dividers.
 
 ## 7. Internationalization
 
 - No user-facing string literals in code. Every label, title, hint, placeholder, tooltip, validation message, grid header, chart title/axis/series, notification, and aria-label is a key in `src/main/resources/vaadin-i18n/translations.properties`.
-- Resolve via `getTranslation(key, args…)` on a `Component`, or `Translations.get(key, args…)` in a static helper.
-- Reuse and parameterise shared keys; namespace calculator-specific ones (`summary.loan.*`, `chart.retirement.*`).
-- Annotations take constants — translate titles via `HasDynamicTitle` and `MenuTitles`.
+- Resolve via `getTranslation(key, args…)` on a `Component`. A non-component helper takes the calling `Component` and resolves through it rather than reaching for a static lookup.
+- Reuse and parameterise shared keys; namespace them by feature (`library.*`, `reader.*`, `save.*`, `highlights.*`, `bookmark.*`).
+- Counts that can be one carry both forms (`library.count.one` / `library.count.many`) and the code picks on the number — `MessageFormat` alone cannot.
+- Enums own their key (`SortMode::translationKey`) so nothing switches on a label. Page titles come from `HasDynamicTitle`.
 - Never `switch` on a translated string; switch on an enum or index.
 
 ## 8. Responsive layout
@@ -76,11 +81,20 @@ Project-wide rules. Once a pattern is established here, follow it without prompt
 
 - `@VaadinSessionScope` beans for per-session state, mirrored to browser localStorage via `WebStorage`. Defaults stay read-only on the classpath; persisted state is separate.
 
+## 10a. Security headers
+
+- Spring Security writes its headers as the response commits, and the response Vaadin renders a page into never commits that way — so the application's own routes come out with no headers at all while static resources get the full set. `SecurityConfig` fixes this with an `ObjectPostProcessor<HeaderWriterFilter>` calling `setShouldWriteHeadersEagerly(true)`. Verify a header change by curling an application route (`/`, `/read/…`), never only a static file.
+- Headers belong in `SecurityConfig`, not a parallel servlet filter — one source of truth, and Spring Security keeps the conditional ones (HSTS only over HTTPS) conditional.
+- `server.forward-headers-strategy=framework` is what makes HSTS appear at all: the container serves plain HTTP behind a TLS-terminating proxy, and without it every request looks insecure.
+
 ## 11. Build & CI
 
-- Run build / test / frontend tasks through `./run.sh <task>` (`compile`, `bundle`, `styles`, `test`, `run`, `package`, `clean`), which pins JDK 21. After a `@CssImport(themeFor=…)` / `@JsModule` change run `./run.sh bundle`; after editing an `@import`-ed CSS partial run `./run.sh styles`.
+- Run build / test / frontend tasks through `./run.sh <task>` (`compile`, `bundle`, `styles`, `test`, `verify`, `run`, `package`, `clean`), which pins JDK 21. Never invoke `mvn` directly. After a `@CssImport(themeFor=…)` / `@JsModule` change run `./run.sh bundle`; after editing an `@import`-ed CSS partial run `./run.sh styles`.
+- `./run.sh verify` clears the cached bundles before building. A `dev.bundle` left by `./run.sh run` makes the frontend build report "a production mode bundle build is not needed", and the integration tests then open a page whose client bundle fails to boot.
 - CI runs `mvn verify` on push (Temurin JDK 21).
-- Tests live alongside the package they cover.
+- Tests live alongside the package they cover. Unit tests for the service layer, browserless tests for views, `*IT` Playwright tests for whole journeys. Both of the latter stub `MetadataResolver` so nothing reaches the network.
+- JaCoCo `<includes>` for a `PACKAGE` rule take dot notation (`io.binarycodes.harbor.*.service`). Slash notation matches nothing and the gate silently passes.
+- Session-scoped beans cannot be `@Autowired` into a browserless test's fields — the Vaadin session does not exist that early. Take the `ApplicationContext` and resolve them in `@BeforeEach`.
 - Conventional Commits: `<type>[(scope)][!]: <description>`, type one of `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. Subject ≤100 chars, single line, no body, no `Co-Authored-By`. A `commit-msg` hook in `.githooks/` enforces this; enable per clone with `git config core.hooksPath .githooks`.
 
 ## 12. Working principles
