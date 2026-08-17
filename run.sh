@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 #
-# Task runner for the bookmark app.
+# Task runner for the Harbor app.
 #
 # Every task pins JAVA_HOME to a JDK 21 because a bare `mvn` on this machine
 # picks JDK 25, under which Lombok silently fails to generate getters/setters
@@ -102,9 +102,17 @@ task_preview() {
 # Unit tests plus the Playwright integration tests. Needs the same
 # commercial-license flag as `package`, because the ITs run against a production
 # bundle build.
+#
+# -Pit is what puts the app in production mode; without it the ITs open a
+# dev-mode page and find an empty screen. The bundles are cleared first because a
+# dev.bundle left behind by `./run.sh run` makes the frontend build decide "a
+# production mode bundle build is not needed" and the app then serves a bundle
+# that fails to boot — the same trap `clean` exists for, and `mvn clean` alone
+# does not clear it since the bundles live under src/.
 task_verify() {
     resolve_java_home
-    run_mvn clean verify -Dvaadin.commercialWithBanner
+    clear_bundles
+    run_mvn clean verify -Pit -Dvaadin.commercialWithBanner
 }
 
 # Full production build. The production bundle build runs the Vaadin Charts
