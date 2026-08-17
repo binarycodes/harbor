@@ -11,4 +11,10 @@ public interface BookmarkActions {
     void open(Bookmark bookmark);
 
     void toggleReadLater(Bookmark bookmark);
+
+    /**
+     * Asks to delete the bookmark. Whether that is confirmed first is the listing's
+     * decision, not the button's.
+     */
+    void remove(Bookmark bookmark);
 }

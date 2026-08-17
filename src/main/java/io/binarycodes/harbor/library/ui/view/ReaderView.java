@@ -4,6 +4,7 @@ import java.util.Optional;
 
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.DetachEvent;
+import com.vaadin.flow.component.UI;
 import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
@@ -17,6 +18,7 @@ import io.binarycodes.harbor.base.ui.EmptyState;
 import io.binarycodes.harbor.base.ui.MainLayout;
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.service.BookmarkService;
+import io.binarycodes.harbor.library.ui.component.DeleteBookmarkDialog;
 import io.binarycodes.harbor.library.ui.component.ReaderArticle;
 import io.binarycodes.harbor.library.ui.component.ReaderHeader;
 import io.binarycodes.harbor.library.ui.component.ReaderSidePanel;
@@ -39,7 +41,7 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
     public static final String BOOKMARK_ID = "bookmarkId";
 
     private final BookmarkService bookmarkService;
-    private final ReaderHeader header = new ReaderHeader(this::toggleReadLater);
+    private final ReaderHeader header = new ReaderHeader(this::toggleReadLater, this::deleteBookmark);
     private final ReaderArticle article = new ReaderArticle(this::addHighlight);
     private final ReaderSidePanel sidePanel;
     private final EmptyState missing = new EmptyState();
@@ -135,6 +137,18 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
     private void toggleReadLater() {
         bookmarkService.toggleReadLater(bookmarkId);
         current().ifPresent(header::show);
+    }
+
+    /**
+     * Deleting the article being read leaves nothing to read, so the reader goes back
+     * to the library rather than being left looking at a bookmark that no longer
+     * exists.
+     */
+    private void deleteBookmark() {
+        current().ifPresent(bookmark -> new DeleteBookmarkDialog(bookmark, () -> {
+            bookmarkService.remove(bookmarkId);
+            UI.getCurrent().navigate(LibraryView.class);
+        }).open());
     }
 
     private void updateNotes(String notes) {

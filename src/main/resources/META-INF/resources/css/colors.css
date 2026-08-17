@@ -30,4 +30,7 @@ html {
 
     --color-storage-online: var(--aura-green);
     --color-storage-online-ring: color-mix(in srgb, var(--aura-green) 20%, transparent);
+
+    --color-danger: var(--aura-red);
+    --color-danger-surface: color-mix(in srgb, var(--aura-red) 12%, transparent);
 }

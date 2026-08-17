@@ -42,6 +42,11 @@ public class BookmarkCompactGrid extends Grid<Bookmark> {
                 .setTextAlign(ColumnTextAlign.END)
                 .setFlexGrow(0)
                 .setWidth("110px");
+        addColumn(new ComponentRenderer<>(bookmark -> new DeleteBookmarkButton(() -> actions.remove(bookmark))))
+                .setHeader(getTranslation("bookmark.column.actions"))
+                .setTextAlign(ColumnTextAlign.END)
+                .setFlexGrow(0)
+                .setWidth("64px");
 
         addItemClickListener(event -> actions.open(event.getItem()));
     }

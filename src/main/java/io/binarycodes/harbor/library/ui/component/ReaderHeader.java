@@ -14,8 +14,8 @@ import io.binarycodes.harbor.library.ui.view.LibraryView;
 
 /**
  * The reader's top bar: the way back to the library, where the article came from,
- * and the two things worth doing to a whole article — queueing it and leaving for
- * the original.
+ * and the things worth doing to a whole article — queueing it, deleting it, and
+ * leaving for the original.
  */
 public class ReaderHeader extends HorizontalLayout {
 
@@ -23,7 +23,7 @@ public class ReaderHeader extends HorizontalLayout {
     private final Button readLaterToggle = new Button();
     private final Anchor original = new Anchor();
 
-    public ReaderHeader(Runnable onToggleReadLater) {
+    public ReaderHeader(Runnable onToggleReadLater, Runnable onDelete) {
         addClassName("reader-header");
         setWidthFull();
         setAlignItems(Alignment.CENTER);
@@ -48,7 +48,11 @@ public class ReaderHeader extends HorizontalLayout {
         original.getElement().setAttribute("rel", "noopener");
         original.add(VaadinIcon.EXTERNAL_LINK.create(), new Span(getTranslation("reader.open_original")));
 
-        HorizontalLayout actions = new HorizontalLayout(readLaterToggle, original);
+        DeleteBookmarkButton delete = new DeleteBookmarkButton(onDelete);
+        delete.addClassName("reader-delete");
+        delete.showLabel();
+
+        HorizontalLayout actions = new HorizontalLayout(readLaterToggle, delete, original);
         actions.addClassName("reader-actions");
         actions.setPadding(false);
         actions.setAlignItems(Alignment.CENTER);

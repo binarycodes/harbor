@@ -15,6 +15,8 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ContextConfiguration;
 
 import com.vaadin.browserless.SpringBrowserlessTest;
+import com.vaadin.flow.component.ComponentUtil;
+import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 
 import io.binarycodes.harbor.BrowserlessStorageConfiguration;
 import io.binarycodes.harbor.StubMetadataConfiguration;
@@ -22,9 +24,13 @@ import io.binarycodes.harbor.library.domain.BookmarkType;
 import io.binarycodes.harbor.library.domain.LibraryQuery;
 import io.binarycodes.harbor.library.domain.LibraryScope;
 import io.binarycodes.harbor.library.domain.LinkDraft;
+import io.binarycodes.harbor.library.domain.ViewMode;
 import io.binarycodes.harbor.library.service.BookmarkService;
 import io.binarycodes.harbor.library.service.LibraryFilter;
 import io.binarycodes.harbor.library.ui.component.BookmarkCard;
+import io.binarycodes.harbor.library.ui.component.BookmarkRow;
+import io.binarycodes.harbor.library.ui.component.DeleteBookmarkButton;
+import io.binarycodes.harbor.library.ui.component.DeleteBookmarkDialog;
 
 @SpringBootTest
 @ContextConfiguration(classes = { StubMetadataConfiguration.class, BrowserlessStorageConfiguration.class })
@@ -122,6 +128,84 @@ class LibraryViewTest extends SpringBrowserlessTest {
         assertTrue(bookmarkService.findById(id).orElseThrow().hasNotes());
         assertFalse(bookmarkService.withHighlights().isEmpty());
         assertEquals(1, cards().size());
+    }
+
+    @Test
+    @DisplayName("asks before deleting a bookmark, and keeps it if the question is declined")
+    void keepsTheBookmarkWhenDeletingIsCancelled() {
+        String id = save("https://example.com/one", "One");
+        showRows();
+
+        deleteButtons().getFirst().click();
+        find(DeleteBookmarkDialog.class).first().close();
+
+        assertTrue(bookmarkService.findById(id).isPresent());
+        assertEquals(1, rows().size());
+    }
+
+    /**
+     * Which of the two goes depends on the sort order, so what is asserted is that
+     * exactly one did — deleting one bookmark must not take its neighbour with it.
+     */
+    @Test
+    @DisplayName("deletes only the chosen bookmark once the question is answered")
+    void deletesTheBookmarkOnConfirmation() {
+        String first = save("https://example.com/one", "One");
+        String second = save("https://example.com/two", "Two");
+        showRows();
+
+        deleteButtons().getFirst().click();
+        confirmDeletion();
+
+        long surviving = List.of(first, second).stream()
+                .filter(id -> bookmarkService.findById(id).isPresent())
+                .count();
+        assertEquals(1, surviving);
+        assertEquals(1, rows().size());
+    }
+
+    @Test
+    @DisplayName("takes the notes and highlights with it")
+    void deletesWhatTheReaderAdded() {
+        String id = save("https://example.com/one", "One");
+        bookmarkService.updateNotes(id, "worth remembering");
+        bookmarkService.addHighlight(id, "a passage worth keeping");
+        showRows();
+
+        deleteButtons().getFirst().click();
+        confirmDeletion();
+
+        assertTrue(bookmarkService.withHighlights().isEmpty());
+        assertEquals(0, bookmarkService.count());
+    }
+
+    /**
+     * Vaadin's Card attaches its slots at element level, so nothing inside a card's
+     * media or footer is reachable through the component tree. The row rendering shows
+     * the same button as a plain child, and both come from the same
+     * {@code BookmarkActions}.
+     */
+    private void showRows() {
+        navigate(LibraryView.class);
+        libraryFilter.setViewMode(ViewMode.ROWS);
+    }
+
+    /**
+     * The dialog opens against the UI rather than the view, and its buttons live in its
+     * own shadow layout — so it is looked up UI-wide and confirmed by firing the event
+     * that button would fire.
+     */
+    private void confirmDeletion() {
+        DeleteBookmarkDialog confirmation = find(DeleteBookmarkDialog.class).first();
+        ComponentUtil.fireEvent(confirmation, new ConfirmDialog.ConfirmEvent(confirmation, true));
+    }
+
+    private List<DeleteBookmarkButton> deleteButtons() {
+        return findInView(DeleteBookmarkButton.class).all();
+    }
+
+    private List<BookmarkRow> rows() {
+        return findInView(BookmarkRow.class).all();
     }
 
     private List<BookmarkCard> cards() {

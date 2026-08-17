@@ -71,6 +71,11 @@ public class LibraryContent extends VerticalLayout implements BookmarkActions, H
     }
 
     @Override
+    public void remove(Bookmark bookmark) {
+        new DeleteBookmarkDialog(bookmark, () -> bookmarkService.remove(bookmark.id())).open();
+    }
+
+    @Override
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         registrations.add(bookmarkService.addChangeListener(this::refresh));

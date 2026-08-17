@@ -145,6 +145,20 @@
     background: var(--aura-background-color);
 }
 
+.delete-bookmark-button {
+    flex-shrink: 0;
+    color: var(--color-danger);
+}
+
+.delete-bookmark-button:hover {
+    background: var(--color-danger-surface);
+}
+
+/* Trailing the footer's metadata, so it sits in the card's bottom-right corner. */
+.bookmark-card .delete-bookmark-button {
+    margin-left: auto;
+}
+
 .read-later-button.queued {
     color: var(--aura-accent-text-color);
 }
