@@ -49,8 +49,8 @@ Then open <http://localhost:8080>.
 
 - Use `binarycodes/harbor:latest` for the newest build, or pin a version tag —
   images are also tagged with the project's Maven version.
-- The app listens on port **8080** inside the container. To serve it elsewhere,
-  remap the port: `-p 9090:8080`. (The app reads no `PORT` variable.)
+- The app listens on port **8080**. Override it with the `PORT` environment
+  variable: `-e PORT=9090 -p 9090:9090`.
 
 ### docker compose
 
