@@ -85,7 +85,7 @@ Project-wide rules. Once a pattern is established here, follow it without prompt
 
 - Spring Security writes its headers as the response commits, and the response Vaadin renders a page into never commits that way — so the application's own routes come out with no headers at all while static resources get the full set. `SecurityConfig` fixes this with an `ObjectPostProcessor<HeaderWriterFilter>` calling `setShouldWriteHeadersEagerly(true)`. Verify a header change by curling an application route (`/`, `/read/…`), never only a static file.
 - Headers belong in `SecurityConfig`, not a parallel servlet filter — one source of truth, and Spring Security keeps the conditional ones (HSTS only over HTTPS) conditional.
-- `server.forward-headers-strategy=framework` is what makes HSTS appear at all: the container serves plain HTTP behind a TLS-terminating proxy, and without it every request looks insecure.
+- HSTS only goes out when the app believes the request was secure, and behind a TLS-terminating proxy it only ever sees plain HTTP. `FORWARD_HEADERS_STRATEGY=native` opts into trusting the proxy's `X-Forwarded-*` headers; it stays unset by default because those headers are client-supplied and spoofable with nothing in front.
 
 ## 11. Build & CI
 
