@@ -115,7 +115,22 @@ public class BookmarkService {
                 .toList();
     }
 
+    /**
+     * The same page saved twice is a mistake worth refusing rather than silently
+     * keeping both, since the second copy carries none of the notes or highlights the
+     * reader left on the first.
+     */
+    public Optional<Bookmark> findByUrl(String url) {
+        String key = UrlKey.of(url);
+        return bookmarks.stream()
+                .filter(bookmark -> UrlKey.of(bookmark.url()).equals(key))
+                .findFirst();
+    }
+
     public Bookmark add(LinkDraft draft) {
+        findByUrl(draft.getUrl()).ifPresent(existing -> {
+            throw new DuplicateBookmarkException(existing);
+        });
         Bookmark bookmark = new Bookmark(
                 UUID.randomUUID().toString(),
                 draft.getUrl(),
@@ -142,6 +157,11 @@ public class BookmarkService {
      * across untouched: editing a title is not a reason to lose any of it.
      */
     public void update(String id, LinkDraft draft) {
+        findByUrl(draft.getUrl())
+                .filter(other -> !other.id().equals(id))
+                .ifPresent(other -> {
+                    throw new DuplicateBookmarkException(other);
+                });
         replace(id, existing -> new Bookmark(
                 existing.id(),
                 draft.getUrl(),

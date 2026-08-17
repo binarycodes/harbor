@@ -25,6 +25,7 @@ import io.binarycodes.harbor.library.domain.BookmarkType;
 import io.binarycodes.harbor.library.domain.LinkDraft;
 import io.binarycodes.harbor.library.service.AddressNotAllowedException;
 import io.binarycodes.harbor.library.service.BookmarkService;
+import io.binarycodes.harbor.library.service.DuplicateBookmarkException;
 import io.binarycodes.harbor.library.service.LinkMetadata;
 import io.binarycodes.harbor.library.service.MetadataResolver;
 
@@ -250,15 +251,28 @@ public class SaveLinkDialog extends Dialog {
      * is already showing.
      */
     private void commit() {
-        if (editingId != null) {
-            bookmarkService.update(editingId, draft);
+        try {
+            if (editingId != null) {
+                bookmarkService.update(editingId, draft);
+                close();
+                bookmarkService.findById(editingId).ifPresent(onSaved);
+                return;
+            }
+            Bookmark saved = bookmarkService.add(draft);
             close();
-            bookmarkService.findById(editingId).ifPresent(onSaved);
-            return;
+            onSaved.accept(saved);
+        } catch (DuplicateBookmarkException alreadySaved) {
+            reportDuplicate(alreadySaved);
         }
-        Bookmark saved = bookmarkService.add(draft);
-        close();
-        onSaved.accept(saved);
+    }
+
+    /**
+     * The dialog stays open on the URL that clashed: the reader is one edit away from
+     * saving a different link, and closing would lose everything they had typed.
+     */
+    private void reportDuplicate(DuplicateBookmarkException alreadySaved) {
+        url.setErrorMessage(getTranslation("save.url.duplicate", alreadySaved.getExisting().title()));
+        url.setInvalid(true);
     }
 
     /**

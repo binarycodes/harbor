@@ -2,6 +2,7 @@ package io.binarycodes.harbor.library.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.time.Duration;
@@ -13,6 +14,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
 
 import com.vaadin.flow.shared.Registration;
 
@@ -113,13 +116,18 @@ class BookmarkServiceTest {
             assertEquals(clock.millis(), saved.savedAt());
         }
 
+        /**
+         * Two different links, because the same one twice is refused outright — see
+         * {@link Duplicates}. The identity still has to be the bookmark's own rather
+         * than anything derived from what it points at.
+         */
         @Test
         @DisplayName("gives every bookmark its own identity")
         void assignsDistinctIds() {
             service.load();
 
             Bookmark first = save("https://example.com/one", "One");
-            Bookmark second = save("https://example.com/one", "One again");
+            Bookmark second = save("https://example.com/two", "Two");
 
             assertFalse(first.id().equals(second.id()));
         }
@@ -417,6 +425,83 @@ class BookmarkServiceTest {
 
             assertTrue(whileListening >= 2);
             assertEquals(whileListening, changes.get());
+        }
+    }
+
+    @Nested
+    @DisplayName("saving a link that is already saved")
+    class Duplicates {
+
+        @Test
+        @DisplayName("is refused, and names the entry that already holds it")
+        void refusesTheSameUrlTwice() {
+            Bookmark first = save("https://example.com/one", "One");
+
+            DuplicateBookmarkException refused = assertThrows(DuplicateBookmarkException.class,
+                    () -> save("https://example.com/one", "One again"));
+
+            assertEquals(first.id(), refused.getExisting().id());
+            assertEquals(1, service.count());
+        }
+
+        /**
+         * The ways the same page gets written differently. None of these change which
+         * page is fetched, so none of them should buy a second copy.
+         */
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {
+                "https://example.com/one/",
+                "https://EXAMPLE.com/one",
+                "https://example.com:443/one",
+                "https://example.com/one#section"
+        })
+        @DisplayName("is refused however the URL is dressed up")
+        void refusesEquivalentUrls(String equivalent) {
+            save("https://example.com/one", "One");
+
+            assertThrows(DuplicateBookmarkException.class, () -> save(equivalent, "One again"));
+        }
+
+        /**
+         * Each of these can serve a different page, so refusing them would be worse
+         * than keeping two entries.
+         */
+        @ParameterizedTest(name = "{0}")
+        @ValueSource(strings = {
+                "http://example.com/one",
+                "https://www.example.com/one",
+                "https://example.com/one?page=2",
+                "https://example.com/two"
+        })
+        @DisplayName("is allowed for URLs that only look similar")
+        void allowsGenuinelyDifferentUrls(String different) {
+            save("https://example.com/one", "One");
+
+            assertTrue(service.findByUrl(different).isEmpty());
+            service.add(draft(different, "Another"));
+
+            assertEquals(2, service.count());
+        }
+
+        @Test
+        @DisplayName("does not stop an edit that leaves the URL alone")
+        void allowsEditingWithoutChangingTheUrl() {
+            String id = save("https://example.com/one", "One").id();
+
+            service.update(id, draft("https://example.com/one", "One, corrected"));
+
+            assertEquals("One, corrected", service.findById(id).orElseThrow().title());
+        }
+
+        @Test
+        @DisplayName("stops an edit that would collide with another entry")
+        void refusesAnEditOntoAnotherUrl() {
+            String id = save("https://example.com/one", "One").id();
+            save("https://example.com/two", "Two");
+
+            assertThrows(DuplicateBookmarkException.class,
+                    () -> service.update(id, draft("https://example.com/two", "One")));
+            assertEquals("One", service.findById(id).orElseThrow().title());
         }
     }
 
