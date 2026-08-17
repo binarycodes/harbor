@@ -42,17 +42,28 @@ public class BookmarkCompactGrid extends Grid<Bookmark> {
                 .setTextAlign(ColumnTextAlign.END)
                 .setFlexGrow(0)
                 .setWidth("110px");
-        addColumn(new ComponentRenderer<>(bookmark -> new DeleteBookmarkButton(() -> actions.remove(bookmark))))
+        addColumn(new ComponentRenderer<>(bookmark -> actionsCell(bookmark, actions)))
                 .setHeader(getTranslation("bookmark.column.actions"))
                 .setTextAlign(ColumnTextAlign.END)
                 .setFlexGrow(0)
-                .setWidth("64px");
+                .setWidth("104px");
 
         addItemClickListener(event -> actions.open(event.getItem()));
     }
 
     public void setBookmarks(List<Bookmark> bookmarks) {
         setItems(bookmarks);
+    }
+
+    /**
+     * Both row actions in one column, so the table gains a single trailing column
+     * rather than one per control.
+     */
+    private Div actionsCell(Bookmark bookmark, BookmarkActions actions) {
+        Div cell = new Div(new ReadLaterButton(bookmark, actions),
+                new DeleteBookmarkButton(() -> actions.remove(bookmark)));
+        cell.addClassName("bookmark-compact-actions");
+        return cell;
     }
 
     private Div titleCell(Bookmark bookmark) {
@@ -70,13 +81,6 @@ public class BookmarkCompactGrid extends Grid<Bookmark> {
 
         Div cell = new Div(stripe, text);
         cell.addClassName("bookmark-compact-cell");
-
-        if (bookmark.readLater()) {
-            Span queued = new Span();
-            queued.addClassName("bookmark-compact-queued");
-            queued.getElement().setAttribute("title", getTranslation("nav.read_later"));
-            cell.add(queued);
-        }
         return cell;
     }
 }

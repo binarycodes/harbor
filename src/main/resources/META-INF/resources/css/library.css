@@ -132,10 +132,22 @@
     left: 12px;
 }
 
-.bookmark-row .read-later-button {
+/*
+    The card positions this toggle over its cover, so every rendering that lays it out
+    in flow has to opt back out of that.
+*/
+.bookmark-row .read-later-button,
+.bookmark-compact-actions .read-later-button {
     position: static;
     flex-shrink: 0;
     background: transparent;
+}
+
+.bookmark-compact-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 2px;
 }
 
 .read-later-button {
@@ -325,14 +337,6 @@
 .bookmark-compact-site {
     font-size: var(--aura-font-size-xs);
     color: var(--color-text-tertiary);
-}
-
-.bookmark-compact-queued {
-    width: 7px;
-    height: 7px;
-    flex-shrink: 0;
-    border-radius: 50%;
-    background: var(--aura-accent-color);
 }
 
 .empty-state {
