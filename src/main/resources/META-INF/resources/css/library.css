@@ -133,21 +133,24 @@
 }
 
 /*
-    The card positions this toggle over its cover, so every rendering that lays it out
-    in flow has to opt back out of that.
+    One group per rendering, so each container's own gap separates the actions from
+    the content beside them while the actions themselves stay a tight cluster. Pushed
+    to the trailing edge, which is where the card's footer, the row and the table cell
+    all want them.
 */
-.bookmark-row .read-later-button,
-.bookmark-compact-actions .read-later-button {
-    position: static;
-    flex-shrink: 0;
-    background: transparent;
-}
-
-.bookmark-compact-actions {
+.bookmark-actions {
     display: flex;
     align-items: center;
     justify-content: flex-end;
     gap: 2px;
+    margin-left: auto;
+}
+
+/* The card positions this toggle over its cover; laid out in flow it opts back out. */
+.bookmark-actions .read-later-button {
+    position: static;
+    flex-shrink: 0;
+    background: transparent;
 }
 
 .read-later-button {
@@ -168,11 +171,6 @@
 
 .delete-bookmark-button:hover {
     background: var(--color-danger-surface);
-}
-
-/* Trailing the footer's metadata, so the pair sits in the card's bottom-right corner. */
-.bookmark-card .edit-bookmark-button {
-    margin-left: auto;
 }
 
 .read-later-button.queued {

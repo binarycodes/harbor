@@ -63,7 +63,7 @@ public class BookmarkCompactGrid extends Grid<Bookmark> {
         Div cell = new Div(new ReadLaterButton(bookmark, actions),
                 new EditBookmarkButton(() -> actions.edit(bookmark)),
                 new DeleteBookmarkButton(() -> actions.remove(bookmark)));
-        cell.addClassName("bookmark-compact-actions");
+        cell.addClassName("bookmark-actions");
         return cell;
     }
 

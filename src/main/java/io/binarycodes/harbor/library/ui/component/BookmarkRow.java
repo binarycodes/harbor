@@ -31,12 +31,22 @@ public class BookmarkRow extends HorizontalLayout {
         date.addClassName("bookmark-row-date");
 
         Div text = text(bookmark);
-        add(CoverTile.forSite(bookmark.site()), text, date, new ReadLaterButton(bookmark, actions),
-                new EditBookmarkButton(() -> actions.edit(bookmark)),
-                new DeleteBookmarkButton(() -> actions.remove(bookmark)));
+        add(CoverTile.forSite(bookmark.site()), text, date, actions(bookmark, actions));
         setFlexGrow(1, text);
 
         getElement().addEventListener("click", event -> actions.open(bookmark));
+    }
+
+    /**
+     * Grouped so the row's own gap separates the actions from the date rather than
+     * spacing them out from each other.
+     */
+    private Div actions(Bookmark bookmark, BookmarkActions actions) {
+        Div group = new Div(new ReadLaterButton(bookmark, actions),
+                new EditBookmarkButton(() -> actions.edit(bookmark)),
+                new DeleteBookmarkButton(() -> actions.remove(bookmark)));
+        group.addClassName("bookmark-actions");
+        return group;
     }
 
     private Div text(Bookmark bookmark) {
