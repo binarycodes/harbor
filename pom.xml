@@ -20,6 +20,7 @@
         <vaadin.version>25.2.5</vaadin.version>
         <icu4j.version>78.3</icu4j.version>
         <jsoup.version>1.23.1</jsoup.version>
+        <ipaddress.version>5.6.2</ipaddress.version>
         <dramafinder.version>1.1.1</dramafinder.version>
         <playwright.version>1.59.0</playwright.version>
         <jacoco.version>0.8.13</jacoco.version>
@@ -51,6 +52,11 @@
                 <groupId>org.jsoup</groupId>
                 <artifactId>jsoup</artifactId>
                 <version>${jsoup.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.seancfoley</groupId>
+                <artifactId>ipaddress</artifactId>
+                <version>${ipaddress.version}</version>
             </dependency>
         </dependencies>
     </dependencyManagement>
@@ -90,6 +96,27 @@
         <dependency>
             <groupId>org.jsoup</groupId>
             <artifactId>jsoup</artifactId>
+        </dependency>
+        <!--
+            jsoup parses, but it resolves and connects with no hook to intervene.
+            Apache's client connects to whatever its DnsResolver returned, which is
+            what lets OutboundAddressPolicy vet an address without leaving a window
+            for a second, unchecked lookup. Version comes from the Spring Boot BOM.
+        -->
+        <dependency>
+            <groupId>org.apache.httpcomponents.client5</groupId>
+            <artifactId>httpclient5</artifactId>
+        </dependency>
+        <!--
+            CIDR arithmetic, not hand-rolled: Spring Security's IpAddressMatcher
+            compares raw address bytes with no family check at the version this build
+            resolves, so an IPv4 range reports a match for an IPv6 address and a
+            16-byte range throws when compared against a 4-byte one. Apache-2.0,
+            which combines into this GPL-3.0 project.
+        -->
+        <dependency>
+            <groupId>com.github.seancfoley</groupId>
+            <artifactId>ipaddress</artifactId>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

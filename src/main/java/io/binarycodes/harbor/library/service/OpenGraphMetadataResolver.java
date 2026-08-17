@@ -3,11 +3,9 @@ package io.binarycodes.harbor.library.service;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.time.Duration;
 import java.util.List;
 import java.util.Locale;
 
-import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -32,10 +30,6 @@ public class OpenGraphMetadataResolver implements MetadataResolver {
 
     private final DocumentLoader documentLoader;
     private final UrlHeuristicMetadata fallback = new UrlHeuristicMetadata();
-
-    public OpenGraphMetadataResolver() {
-        this(new JsoupDocumentLoader());
-    }
 
     OpenGraphMetadataResolver(DocumentLoader documentLoader) {
         this.documentLoader = documentLoader;
@@ -118,31 +112,4 @@ public class OpenGraphMetadataResolver implements MetadataResolver {
         }
     }
 
-    /**
-     * The seam that keeps the network out of the tests.
-     */
-    interface DocumentLoader {
-
-        Document load(String url) throws IOException;
-    }
-
-    private static class JsoupDocumentLoader implements DocumentLoader {
-
-        private static final Duration TIMEOUT = Duration.ofSeconds(8);
-        private static final int MAX_BODY_BYTES = 512 * 1024;
-        private static final String USER_AGENT = "Mozilla/5.0 (compatible; Harbor/1.0; +local-first bookmark manager)";
-
-        @Override
-        public Document load(String url) throws IOException {
-            return Jsoup.connect(url)
-                    .userAgent(USER_AGENT)
-                    .timeout((int) TIMEOUT.toMillis())
-                    .maxBodySize(MAX_BODY_BYTES)
-                    .followRedirects(true)
-                    .ignoreHttpErrors(false)
-                    .ignoreContentType(false)
-                    .header("Accept", "text/html,application/xhtml+xml")
-                    .get();
-        }
-    }
 }

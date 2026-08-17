@@ -5,9 +5,8 @@ app. Paste a link and Harbor reads the page for you: it pulls the title,
 description and the article text itself, then gives you a distraction-free reader
 with Markdown notes and highlights.
 
-### A quick look
+## A quick look
 
-Save a link, and Harbor fetches the page and drops you straight into the reader.
 Select any passage to keep it as a highlight — kept passages stay marked in the
 article and collect on their own screen. Notes sit beside the text and render as
 Markdown as you type.
@@ -61,6 +60,9 @@ services:
     ports:
       - "8080:8080"
     restart: unless-stopped
+    # Only if you need Harbor to reach private addresses; see below.
+    # environment:
+    #   - HARBOR_ALLOWED_RANGES=192.168.1.50/32
 ```
 
 ### Podman Quadlet (systemd)
@@ -112,30 +114,45 @@ harbor.example.com {
 }
 ```
 
-Behind a TLS-terminating proxy, also set `FORWARD_HEADERS_STRATEGY=native` on the
-container. The app then trusts the proxy's `X-Forwarded-*` headers and can tell
-that a request arrived over HTTPS, which is what lets it mark the session cookie
-`Secure` and send `Strict-Transport-Security` — it cannot work that out on its
-own, because it only ever sees plain HTTP from the proxy. Leave it unset when the
-app is reachable directly: those headers are client-supplied and spoofable
-without a proxy in front.
+Behind such a proxy, also set `FORWARD_HEADERS_STRATEGY=native` on the container.
+The app then trusts the proxy's `X-Forwarded-*` headers and can tell that a
+request arrived over HTTPS, which is what lets it mark the session cookie
+`Secure` and send `Strict-Transport-Security`. Leave it unset when the app is
+reachable directly, where those headers are client-supplied and spoofable.
 
-Everything in Harbor works over plain HTTP too; nothing depends on a secure
-browser context.
+### What the server is allowed to fetch
 
-**A note on what the server fetches.** Saving a link makes the *server* request
-that URL, so it reaches whatever the server can reach. Only `http` and `https`
-are followed, but there is no block on private or link-local addresses — don't
-expose an instance to people you don't trust with that.
+Saving a link makes the *server* request that URL, so the address it lands on is a
+deployment decision. Only `http` and `https` are followed, and by default only
+public internet addresses: loopback, the private blocks, link-local (and so the
+cloud metadata address at `169.254.169.254`), and the reserved ranges are all
+refused — including when a public URL redirects into them, and including the IPv6
+forms that carry an IPv4 address inside them.
+
+If your own hosts are private — a NAS, an internal wiki — permit them by range:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e HARBOR_ALLOWED_RANGES=192.168.1.50/32 \
+  binarycodes/harbor:latest
+```
+
+Comma-separated, IPv4 or IPv6, and it overrides the refused ranges rather than
+replacing them, so permitting one machine leaves everything else refused. A range
+Harbor cannot read fails startup rather than silently never matching.
+
+Worth being clear about what this does and does not do: Harbor has no accounts, so
+anyone who can reach the app can use the save box. The guard bounds *where* that
+reaches; it does not authenticate anyone.
 
 ---
 
 ## Develop locally
 
 Requirements: **JDK 21**. Every task goes through `./run.sh`, which pins JDK 21
-(from SDKMAN if present, otherwise your `JAVA_HOME`) — a bare `mvn` on a machine
-with a newer JDK makes Lombok fail in confusing ways. Run `./run.sh` with no
-arguments to list the tasks.
+(from SDKMAN if present, otherwise your `JAVA_HOME`) — a bare `mvn` under a newer
+JDK makes Lombok fail in confusing ways. Run `./run.sh` with no arguments to list
+the tasks.
 
 ```bash
 ./run.sh run
@@ -150,11 +167,6 @@ Run the tests:
 ./run.sh test      # unit + browserless view tests, with the coverage gate
 ./run.sh verify    # the above plus the Playwright end-to-end journeys
 ```
-
-`./run.sh verify` clears the cached frontend bundles first and builds in
-production mode, because a `dev.bundle` left behind by `./run.sh run` otherwise
-makes the frontend build skip the production bundle and the tests open a page
-that never boots.
 
 Two more tasks worth knowing: after changing a `@CssImport(themeFor=…)` or
 `@JsModule`, run `./run.sh bundle`; after editing an `@import`-ed CSS partial, run
@@ -184,24 +196,21 @@ docker build -t harbor:latest \
 GIT_SHA="$(git rev-parse HEAD)" docker buildx bake
 ```
 
-Nothing else is needed — Harbor's UI is built entirely from Vaadin's free
-components, so the build depends on `vaadin-core` and needs no license or secret.
+No Vaadin license or secret is needed — the UI is built entirely from Vaadin's
+free components, so the build depends on `vaadin-core`.
 
 `APP_NAME` must match the Maven `artifactId`: the `Dockerfile` copies the jar as
-`target/${APP_NAME}-${APP_VERSION}.jar`. CI derives it from the pom, so only a
-hand-rolled `docker build` needs it spelled out. `GIT_SHA` is required because
-`.git` is excluded from the build context and every build must be traceable to a
-commit.
+`target/${APP_NAME}-${APP_VERSION}.jar`. `GIT_SHA` is required because `.git` is
+excluded from the build context.
 
 ---
 
 ## How it's published
 
-`binarycodes/harbor` on Docker Hub is built and pushed automatically by the GitHub
-Actions **CI** workflow: on every push to `main`, the image is built and published
-**only after `mvn verify` passes** (the `docker` job is gated on the `verify`
-job). Images are signed with [cosign](https://github.com/sigstore/cosign) and ship
-with provenance + SBOM attestations.
+`binarycodes/harbor` on Docker Hub is built and pushed automatically by the
+GitHub Actions **CI** workflow on every push to `main`, only after `mvn verify`
+passes. Images are signed with [cosign](https://github.com/sigstore/cosign) and
+ship with provenance + SBOM attestations.
 
 ---
 
