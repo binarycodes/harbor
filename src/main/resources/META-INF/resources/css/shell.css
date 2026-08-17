@@ -25,9 +25,15 @@ vaadin-app-layout:not([overlay])::part(navbar) {
     display: none;
 }
 
+/*
+    Stretched because VerticalLayout aligns its cross axis to the start, which leaves
+    every child shrunk to its own content — the navigation ends up narrower than the
+    drawer and its rows stop short of the edge.
+*/
 .sidebar {
     gap: 4px;
     padding: 18px 14px 14px;
+    align-items: stretch;
 }
 
 .sidebar-brand {
@@ -71,6 +77,7 @@ vaadin-app-layout:not([overlay])::part(navbar) {
 .tag-filter-list {
     min-height: 0;
     overflow: hidden;
+    align-items: stretch;
 }
 
 .tag-filter-header {
