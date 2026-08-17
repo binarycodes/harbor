@@ -21,7 +21,8 @@ import io.binarycodes.harbor.library.domain.BookmarkType;
  * <p>Anything the page does not tell us falls through to
  * {@link UrlHeuristicMetadata}, and so does any failure to reach it at all —
  * saving a link must work offline, behind a paywall, and against a host that
- * refuses robots.
+ * refuses robots. An address the deployment refuses to fetch is the exception: that
+ * is a decision worth reporting rather than a page that happened to be unreachable.
  */
 @Component
 public class OpenGraphMetadataResolver implements MetadataResolver {
@@ -41,6 +42,10 @@ public class OpenGraphMetadataResolver implements MetadataResolver {
         Document document;
         try {
             document = documentLoader.load(absolute(url));
+        } catch (BlockedAddressException blocked) {
+            LOGGER.warn("Refused to fetch {}: {} is outside the ranges this deployment allows", url,
+                    blocked.getAddress());
+            throw new AddressNotAllowedException(blocked);
         } catch (IOException | IllegalArgumentException unreachable) {
             LOGGER.info("Could not read {}, describing it from the URL instead: {}", url,
                     unreachable.getMessage());

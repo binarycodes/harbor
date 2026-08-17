@@ -2,6 +2,7 @@ package io.binarycodes.harbor.library.ui.component;
 
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 
 import com.vaadin.flow.component.UI;
@@ -21,6 +22,7 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.LinkDraft;
+import io.binarycodes.harbor.library.service.AddressNotAllowedException;
 import io.binarycodes.harbor.library.service.BookmarkService;
 import io.binarycodes.harbor.library.service.LinkMetadata;
 import io.binarycodes.harbor.library.service.MetadataResolver;
@@ -215,8 +217,29 @@ public class SaveLinkDialog extends Dialog {
                     setFetching(false);
                     if (metadata != null) {
                         onResolved.accept(metadata);
+                        return;
                     }
+                    reportFailure(failure);
                 }));
+    }
+
+    /**
+     * The resolver describes an unreachable page from its URL instead of failing, so
+     * the only failure that arrives here is one worth showing: an address this
+     * deployment refuses to fetch. Nothing is saved, and the URL keeps the message
+     * until it changes.
+     *
+     * <p>The message names neither the address nor the property that would permit it.
+     * Harbor has no accounts, so whoever pasted the link is not necessarily someone
+     * who should be told what the server can see or how its guard is configured; the
+     * detail goes to the log, where the operator will look.
+     */
+    private void reportFailure(Throwable failure) {
+        Throwable cause = failure instanceof CompletionException ? failure.getCause() : failure;
+        if (cause instanceof AddressNotAllowedException) {
+            url.setErrorMessage(getTranslation("save.url.blocked"));
+            url.setInvalid(true);
+        }
     }
 
     /**
