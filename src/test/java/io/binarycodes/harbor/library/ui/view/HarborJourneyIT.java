@@ -1,6 +1,7 @@
 package io.binarycodes.harbor.library.ui.view;
 
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -132,6 +133,127 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
         assertThat(page.locator("vaadin-grid.bookmark-compact-grid")).isVisible();
     }
 
+    @Test
+    @DisplayName("cannot save a link until its page has been read")
+    void cannotSaveWithoutFetching() {
+        click(page.getByText("Save a link"));
+        waitForVaadin();
+        TextFieldElement.getByLabel(page, "URL").setValue("https://example.com/some-article");
+        waitForVaadin();
+
+        Locator submit = page.locator("vaadin-button.save-link-submit");
+        assertThat(submit).hasAttribute("disabled", "");
+
+        click(page.getByText("Fetch"));
+        waitForVaadin();
+
+        assertThat(submit).not().hasAttribute("disabled", "");
+    }
+
+    @Test
+    @DisplayName("is told when a link is already in the library")
+    void refusesADuplicate() {
+        saveALink();
+        backToLibrary();
+
+        click(page.getByText("Save a link"));
+        waitForVaadin();
+        TextFieldElement.getByLabel(page, "URL").setValue("https://example.com/some-article");
+        waitForVaadin();
+        click(page.getByText("Fetch"));
+        waitForVaadin();
+        click(page.getByText("Save to library"));
+        waitForVaadin();
+
+        assertThat(page.getByText("is already in your library", new Page.GetByTextOptions()
+                .setExact(false))).isVisible();
+        assertThat(page.locator("vaadin-card.bookmark-card")).hasCount(1);
+    }
+
+    @Test
+    @DisplayName("corrects a bookmark's title from the library")
+    void editsABookmark() {
+        saveALink();
+        backToLibrary();
+
+        click(page.locator("vaadin-card.bookmark-card .edit-bookmark-button").first());
+        waitForVaadin();
+        // Filled through the input and then left, because the title field commits on
+        // change rather than on every keystroke the way the URL field does.
+        page.locator("vaadin-text-field.save-link-title input").fill("A Better Title");
+        page.keyboard().press("Tab");
+        waitForVaadin();
+        click(page.getByText("Save changes"));
+        waitForVaadin();
+
+        assertThat(page.locator(".bookmark-card-title")).hasText("A Better Title");
+        assertThat(page.locator("vaadin-card.bookmark-card")).hasCount(1);
+    }
+
+    @Test
+    @DisplayName("deletes a bookmark only after confirming")
+    void deletesABookmark() {
+        saveALink();
+        backToLibrary();
+
+        click(page.locator("vaadin-card.bookmark-card .delete-bookmark-button").first());
+        waitForVaadin();
+        assertThat(page.getByText("Delete this bookmark?")).isVisible();
+
+        click(page.getByText("Keep it"));
+        waitForVaadin();
+        assertThat(page.locator("vaadin-card.bookmark-card")).hasCount(1);
+
+        click(page.locator("vaadin-card.bookmark-card .delete-bookmark-button").first());
+        waitForVaadin();
+        click(page.locator("vaadin-button[slot='confirm-button']"));
+        waitForVaadin();
+
+        assertThat(page.getByText("Nothing here yet")).isVisible();
+    }
+
+    @Test
+    @DisplayName("orders the library by how long each read is, both ways round")
+    void sortsByReadingTimeBothWays() {
+        saveALink("https://example.com/a-long-article");
+        backToLibrary();
+        saveALink("https://example.com/a-short-note");
+        backToLibrary();
+
+        chooseSort("Longest read");
+        assertThat(page.locator(".bookmark-card-title").first()).hasText("The Long Read");
+
+        chooseSort("Shortest read");
+        assertThat(page.locator(".bookmark-card-title").first()).hasText("The Short Read");
+    }
+
+    /**
+     * The spacing complaint that started this: as separate children of the card's
+     * footer the two controls inherited the gap meant to hold them apart from the
+     * metadata. Grouped, they sit next to each other, so the distance between them
+     * stays small however the footer is spaced.
+     */
+    @Test
+    @DisplayName("keeps a card's edit and delete controls next to each other")
+    void groupsTheCardActions() {
+        saveALink();
+        backToLibrary();
+
+        Locator edit = page.locator("vaadin-card.bookmark-card .edit-bookmark-button").first();
+        Locator delete = page.locator("vaadin-card.bookmark-card .delete-bookmark-button").first();
+
+        double gap = delete.boundingBox().x - (edit.boundingBox().x + edit.boundingBox().width);
+
+        assertTrue(gap < 8, "edit and delete should sit together, but were " + gap + "px apart");
+    }
+
+    private void chooseSort(String option) {
+        click(page.locator(".library-sort-trigger"));
+        waitForVaadin();
+        click(page.getByRole(AriaRole.MENUITEM, new Page.GetByRoleOptions().setName(option)));
+        waitForVaadin();
+    }
+
     /**
      * The reader's way back. Located by class rather than by its label, because
      * "Library" as text also matches the sidebar's "Research library" tagline.
@@ -142,9 +264,13 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
     }
 
     private void saveALink() {
+        saveALink("https://example.com/some-article");
+    }
+
+    private void saveALink(String url) {
         click(page.getByText("Save a link"));
         waitForVaadin();
-        TextFieldElement.getByLabel(page, "URL").setValue("https://example.com/some-article");
+        TextFieldElement.getByLabel(page, "URL").setValue(url);
         waitForVaadin();
         click(page.getByText("Fetch"));
         waitForVaadin();

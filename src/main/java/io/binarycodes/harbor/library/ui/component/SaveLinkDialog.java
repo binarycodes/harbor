@@ -201,6 +201,7 @@ public class SaveLinkDialog extends Dialog {
         reviewSummary.addClassName("save-link-summary");
 
         title.setLabel(getTranslation("save.field.title"));
+        title.addClassName("save-link-title");
         title.setWidthFull();
         description.setLabel(getTranslation("save.field.description"));
         description.setWidthFull();
