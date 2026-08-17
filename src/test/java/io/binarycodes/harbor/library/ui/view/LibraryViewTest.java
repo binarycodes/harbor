@@ -137,7 +137,7 @@ class LibraryViewTest extends SpringBrowserlessTest {
         showRows();
 
         deleteButtons().getFirst().click();
-        find(DeleteBookmarkDialog.class).first().close();
+        find(DeleteBookmarkDialog.class).single().close();
 
         assertTrue(bookmarkService.findById(id).isPresent());
         assertEquals(1, rows().size());
@@ -196,7 +196,7 @@ class LibraryViewTest extends SpringBrowserlessTest {
      * that button would fire.
      */
     private void confirmDeletion() {
-        DeleteBookmarkDialog confirmation = find(DeleteBookmarkDialog.class).first();
+        DeleteBookmarkDialog confirmation = find(DeleteBookmarkDialog.class).single();
         ComponentUtil.fireEvent(confirmation, new ConfirmDialog.ConfirmEvent(confirmation, true));
     }
 
