@@ -37,12 +37,6 @@ final class ArticleImageSource {
     private static final Pattern EMBEDDABLE =
             Pattern.compile("(?i)\\.(jpe?g|png|gif)(\\?|#|$)");
 
-    /**
-     * A {@code data:} URI this small is a spacer holding the layout open, not a
-     * picture. Real inline images are far larger.
-     */
-    private static final int LARGEST_PLACEHOLDER = 1024;
-
     private static final Pattern HTTP_SCHEME = Pattern.compile("(?i)^https?://");
 
     private ArticleImageSource() {
@@ -90,12 +84,14 @@ final class ArticleImageSource {
                 .findFirst();
     }
 
+    /**
+     * A {@code data:} URI needs no candidate at all — it is already the bytes, and
+     * {@link #resolve} drops it for not being http. Whether those bytes are a real
+     * picture or a spacer holding the layout open is the renderer's question, since
+     * it is the one deciding what to keep.
+     */
     private static Optional<String> fromSrc(Element image) {
-        String src = image.attr("src");
-        if (src.startsWith("data:") && src.length() <= LARGEST_PLACEHOLDER) {
-            return Optional.empty();
-        }
-        return resolve(src, image);
+        return resolve(image.attr("src"), image);
     }
 
     /**

@@ -70,16 +70,19 @@ class ArticleImageSourceTest {
         }
 
         /**
-         * Even a real inline image is no candidate here: this reports what to fetch,
-         * and a {@code data:} URI is already the bytes. The renderer leaves those in
-         * place rather than going looking for them.
+         * No {@code data:} URI is a candidate, whatever its size: this reports what to
+         * fetch, and those bytes are already here. Size says nothing about
+         * fetchability — it only bears on whether the bytes are a picture or a
+         * spacer, which is the renderer's question.
          */
         @Test
-        @DisplayName("offers no candidate for an inline image, which needs no fetching")
-        void offersNothingForAnInlineImage() {
-            String inline = "<img src='data:image/png;base64," + "A".repeat(2000) + "'>";
+        @DisplayName("offers no candidate for inline bytes, spacer or picture")
+        void offersNothingForInlineBytes() {
+            String spacer = "<img src='data:image/gif;base64,R0lGODlhAQABAAAAACw='>";
+            String picture = "<img src='data:image/png;base64," + "A".repeat(4000) + "'>";
 
-            assertTrue(ArticleImageSource.bestFor(image(inline)).isEmpty());
+            assertTrue(ArticleImageSource.bestFor(image(spacer)).isEmpty());
+            assertTrue(ArticleImageSource.bestFor(image(picture)).isEmpty());
         }
     }
 
