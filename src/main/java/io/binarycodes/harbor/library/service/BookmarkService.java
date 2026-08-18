@@ -254,12 +254,16 @@ public class BookmarkService {
         }
     }
 
+    /**
+     * Bare column names, with no table alias: the ordering is applied outside the
+     * query it belongs to, where the alias is no longer in scope.
+     */
     private static Sort sortFor(SortMode sortMode) {
         return switch (sortMode) {
-            case RECENT -> JpaSort.unsafe(Sort.Direction.DESC, "b.saved_at");
-            case TITLE -> JpaSort.unsafe(Sort.Direction.ASC, "b.title collate \"und-x-icu\"");
-            case READING_TIME_SHORTEST -> JpaSort.unsafe(Sort.Direction.ASC, "b.reading_minutes");
-            case READING_TIME_LONGEST -> JpaSort.unsafe(Sort.Direction.DESC, "b.reading_minutes");
+            case RECENT -> JpaSort.unsafe(Sort.Direction.DESC, "saved_at");
+            case TITLE -> JpaSort.unsafe(Sort.Direction.ASC, "title collate \"und-x-icu\"");
+            case READING_TIME_SHORTEST -> JpaSort.unsafe(Sort.Direction.ASC, "reading_minutes");
+            case READING_TIME_LONGEST -> JpaSort.unsafe(Sort.Direction.DESC, "reading_minutes");
         };
     }
 }
