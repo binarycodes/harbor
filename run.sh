@@ -29,6 +29,31 @@ resolve_java_home() {
     echo "Using JAVA_HOME=${JAVA_HOME}"
 }
 
+# Testcontainers finds the daemon through DOCKER_HOST or /var/run/docker.sock. The
+# docker CLI instead reads its own "context", so on Colima and Rancher Desktop the CLI
+# works while Testcontainers reports "Could not find a valid Docker environment" — the
+# socket is under the user's home, which docker-java never looks at. Take the endpoint
+# from the context the CLI is actually using.
+#
+# The socket override is for Ryuk, the cleanup sidecar: it mounts the socket from
+# inside the VM, where the path is /var/run/docker.sock regardless of where the host
+# sees it.
+resolve_docker_host() {
+    if [[ -n "${DOCKER_HOST:-}" ]]; then
+        return
+    fi
+    if [[ -S /var/run/docker.sock ]]; then
+        return
+    fi
+    local endpoint
+    endpoint=$(docker context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null || true)
+    if [[ -n "${endpoint}" && "${endpoint}" != "unix:///var/run/docker.sock" ]]; then
+        export DOCKER_HOST="${endpoint}"
+        export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="${TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE:-/var/run/docker.sock}"
+        echo "Using DOCKER_HOST=${DOCKER_HOST}"
+    fi
+}
+
 # Every mvn build must carry the deployed commit SHA — the enforcer plugin fails
 # the build without a valid build.commit. Resolve it once from the working tree
 # and pass it to every mvn invocation. A non-repo checkout is a hard error by
@@ -135,6 +160,7 @@ task_deps() {
 
 task_test() {
     resolve_java_home
+    resolve_docker_host
     # JaCoCo enforces an 80% line-coverage gate on the */service packages.
     run_mvn -o test "$@"
 }
@@ -162,6 +188,7 @@ task_preview() {
 # does not clear it since the bundles live under src/.
 task_verify() {
     resolve_java_home
+    resolve_docker_host
     clear_bundles
     run_mvn clean verify -Pit "$@"
 }

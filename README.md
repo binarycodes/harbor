@@ -241,8 +241,11 @@ Run the tests:
 ```
 
 Both start their own PostgreSQL and their own Chromium in containers, so neither needs
-the development stack running. Where containers cannot run, point them at your own
-instead:
+the development stack running. `run.sh` finds the container engine from your docker
+context, which is what makes this work on Colima and Rancher Desktop — their socket
+lives under your home directory, where Testcontainers does not look on its own.
+
+Where containers cannot run at all, point the tests at your own instead:
 
 ```bash
 ./run.sh verify -Dharbor.test.database=external -Dspring.datasource.url=jdbc:postgresql://host:5432/harbor_test -Dharbor.archive.browser-url=http://host:9222

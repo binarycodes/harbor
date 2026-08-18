@@ -95,6 +95,7 @@ Project-wide rules. Once a pattern is established here, follow it without prompt
 
 ## 11. Build & CI
 
+- `./run.sh test` and `verify` export `DOCKER_HOST` from the active docker context when it is not already set. The CLI reads contexts and Testcontainers does not, so on Colima the CLI works while the tests report no Docker environment.
 - Run build / test / frontend tasks through `./run.sh <task>` (`db`, `browser`, `deps`, `compile`, `bundle`, `styles`, `test`, `verify`, `run`, `package`, `clean`), which pins JDK 21. Never invoke `mvn` directly. Every task but `deps` builds offline, so a newly added dependency needs `./run.sh deps` once. After a `@CssImport(themeFor=…)` / `@JsModule` change run `./run.sh bundle`; after editing an `@import`-ed CSS partial run `./run.sh styles`.
 - `./run.sh verify` clears the cached bundles before building. A `dev.bundle` left by `./run.sh run` makes the frontend build report "a production mode bundle build is not needed", and the integration tests then open a page whose client bundle fails to boot.
 - CI runs `mvn verify` on push (Temurin JDK 21).
