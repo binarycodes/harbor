@@ -13,8 +13,7 @@ import io.binarycodes.harbor.library.domain.ColorSchemePreference;
 import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 
 /**
- * The foot of the drawer: a reminder that the library lives on this device only,
- * and the light/dark control.
+ * The foot of the drawer: how much is in the library, and the light/dark control.
  *
  * <p>The control cycles through three states rather than flipping between two.
  * Until the reader picks a side the operating system decides, and a two-way
