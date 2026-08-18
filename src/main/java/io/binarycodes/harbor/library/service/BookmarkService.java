@@ -34,6 +34,10 @@ import tools.jackson.databind.json.JsonMapper;
  * <p>Nothing here knows a screen exists. Entities and the repository stay inside
  * this package, so what leaves is always an immutable record, and always inside
  * the transaction that produced it.
+ *
+ * <p>Every bookmark carries an archive of its page. {@link #add} refuses a draft
+ * without one, because the save dialog is only one caller and an invariant guarded
+ * at the screen is an invariant with a way around it.
  */
 @Component
 public class BookmarkService {
@@ -110,6 +114,10 @@ public class BookmarkService {
 
     @Transactional
     public Bookmark add(LinkDraft draft) {
+        if (draft.getArchive() == null || draft.getArchive().length == 0) {
+            throw new IllegalArgumentException(
+                    "A bookmark cannot be saved without an archive of its page");
+        }
         refuseDuplicate(draft.getUrl(), null);
         BookmarkEntity entity = new BookmarkEntity();
         // The id is the database's to assign, so the record handed to the mapper

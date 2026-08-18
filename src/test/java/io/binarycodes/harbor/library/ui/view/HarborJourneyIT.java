@@ -8,6 +8,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ContextConfiguration;
 import org.vaadin.addons.dramafinder.AbstractBasePlaywrightIT;
@@ -36,6 +37,7 @@ import io.binarycodes.harbor.library.service.BookmarkService;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ContextConfiguration(classes = { StubMetadataConfiguration.class, HarborDatabase.class })
 @DisplayName("A reader using Harbor")
+@TestPropertySource(properties = "harbor.archive.browser-url=http://archiver.invalid:9222")
 class HarborJourneyIT extends AbstractBasePlaywrightIT {
 
     @Autowired

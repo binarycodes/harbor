@@ -19,6 +19,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
@@ -26,6 +27,7 @@ import org.springframework.context.annotation.Primary;
 
 import io.binarycodes.harbor.HarborDatabase;
 
+import io.binarycodes.harbor.StubMetadataConfiguration;
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.BookmarkSummary;
 import io.binarycodes.harbor.library.domain.BookmarkType;
@@ -39,6 +41,7 @@ import io.binarycodes.harbor.library.domain.TagCount;
 @SpringBootTest
 @Import({ HarborDatabase.class, BookmarkServiceTest.FixedClock.class })
 @DisplayName("The library")
+@TestPropertySource(properties = "harbor.archive.browser-url=http://archiver.invalid:9222")
 class BookmarkServiceTest {
 
     @Autowired
@@ -349,6 +352,51 @@ class BookmarkServiceTest {
     }
 
     @Nested
+    @DisplayName("when a page could not be archived")
+    class Unarchivable {
+
+        /**
+         * Archiving is the point, not a bonus: a bookmark with no copy of its page is a
+         * link that will rot, so the service refuses one rather than filing it.
+         */
+        @Test
+        @DisplayName("is refused rather than saved without its archive")
+        void refusesADraftWithNoArchive() {
+            LinkDraft draft = draft("https://example.com/unarchivable", "Unarchivable");
+            draft.setArchive(null);
+
+            assertThrows(IllegalArgumentException.class, () -> service.add(draft));
+            assertEquals(0, service.count());
+        }
+
+        @Test
+        @DisplayName("is refused for an empty archive as well as a missing one")
+        void refusesAnEmptyArchive() {
+            LinkDraft draft = draft("https://example.com/empty", "Empty");
+            draft.setArchive(new byte[0]);
+
+            assertThrows(IllegalArgumentException.class, () -> service.add(draft));
+        }
+
+        /**
+         * Editing is the one exception. Correcting a title carries no fresh archive, and
+         * requiring one would mean re-rendering the page on every edit — and losing the
+         * ability to edit at all once the page has gone.
+         */
+        @Test
+        @DisplayName("does not stop an edit, which keeps the archive already stored")
+        void allowsAnEditWithoutAFreshArchive() {
+            String id = save("https://example.com/one", "One").id();
+            LinkDraft edit = draft("https://example.com/one", "One, corrected");
+            edit.setArchive(null);
+
+            service.update(id, edit);
+
+            assertEquals("One, corrected", service.findById(id).orElseThrow().title());
+        }
+    }
+
+    @Nested
     @DisplayName("when a library saved before the database is taken in")
     class Importing {
 
@@ -541,6 +589,8 @@ class BookmarkServiceTest {
         draft.setType(BookmarkType.ARTICLE);
         draft.setReadingMinutes(7);
         draft.setContent("## Body\n\nSome words.");
+        // Every bookmark carries an archive now; add() refuses a draft without one.
+        draft.setArchive(StubMetadataConfiguration.STUB_ARCHIVE);
         return draft;
     }
 }

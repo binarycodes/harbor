@@ -34,6 +34,11 @@ public class StubMetadataConfiguration {
     public static final int SHORT_READ_MINUTES = 2;
 
     /**
+     * Put this in a URL to get metadata that was read but could not be archived.
+     */
+    public static final String UNARCHIVABLE = "unarchivable";
+
+    /**
      * Enough of a PDF for the download to be exercised without rendering one. The
      * magic bytes are what a reader's viewer looks at first.
      */
@@ -45,7 +50,16 @@ public class StubMetadataConfiguration {
     public MetadataResolver stubMetadataResolver() {
         return url -> new LinkMetadata(RESOLVED_SITE, titleFor(url), RESOLVED_DESCRIPTION, RESOLVED_TAGS,
                 BookmarkType.ARTICLE, minutesFor(url), "## A heading\n\n" + RESOLVED_PASSAGE, true,
-                STUB_ARCHIVE);
+                archiveFor(url));
+    }
+
+    /**
+     * A URL saying {@value #UNARCHIVABLE} stands for a page Harbor can read but not
+     * archive — keyed off the URL, the way the reading times already are, so a test
+     * chooses the behaviour it needs without swapping beans.
+     */
+    private static byte[] archiveFor(String url) {
+        return url.contains(UNARCHIVABLE) ? null : STUB_ARCHIVE;
     }
 
     private static String titleFor(String url) {

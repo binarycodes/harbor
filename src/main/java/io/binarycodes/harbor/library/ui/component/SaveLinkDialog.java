@@ -32,8 +32,9 @@ import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
  *
  * <p>Reading the page means waiting on a stranger's web server, so the fetch runs
  * off the UI thread and the dialog is pushed its result. Nothing can be saved until
- * that read succeeds: a library of links whose pages were never reachable is a
- * library of guesses, and the reader would have no article to come back to.
+ * that read succeeds and the page has been archived: a library of links whose pages
+ * were never reachable is a library of guesses, and one whose pages were never
+ * archived is a library of links that will rot.
  */
 public class SaveLinkDialog extends Dialog {
 
@@ -55,8 +56,9 @@ public class SaveLinkDialog extends Dialog {
     private boolean fetching;
 
     /**
-     * Whether the page behind the current URL has actually been read. Nothing can be
-     * saved until it has, so a link that cannot be fetched cannot be filed.
+     * Whether the page behind the current URL was read and archived. Nothing can be
+     * saved until both are true, so a link that cannot be fetched — or cannot be
+     * archived — cannot be filed.
      */
     private boolean pageRead;
 
@@ -235,17 +237,18 @@ public class SaveLinkDialog extends Dialog {
     }
 
     /**
-     * A page that could not be read leaves nothing worth saving — what came back was
-     * inferred from the URL, not from the page — so the review stays shut and the
-     * reader is told to check the link rather than being handed fields to fill in.
+     * Two ways this can come back with nothing worth saving, and they are different
+     * problems for the reader: the page could not be reached at all, or it was
+     * reached and could not be archived. Saying which is the difference between
+     * "check the link" and "the archiver is down".
      */
     private void reviewFetched(LinkMetadata metadata) {
         if (!metadata.pageRead()) {
-            pageRead = false;
-            showReview(false);
-            url.setErrorMessage(getTranslation("save.url.unreadable"));
-            url.setInvalid(true);
-            updateSubmitState();
+            refuse("save.url.unreadable");
+            return;
+        }
+        if (!metadata.hasArchive()) {
+            refuse("save.url.unarchivable");
             return;
         }
         applyMetadata(metadata);
@@ -254,10 +257,18 @@ public class SaveLinkDialog extends Dialog {
         updateSubmitState();
     }
 
+    private void refuse(String reasonKey) {
+        pageRead = false;
+        showReview(false);
+        url.setErrorMessage(getTranslation(reasonKey));
+        url.setInvalid(true);
+        updateSubmitState();
+    }
+
     /**
-     * Saving never fetches on the reader's behalf: the page has to have been read
-     * first, which is what stops an unreachable link being filed as if it were an
-     * article. An edit is already past that gate unless its URL changed.
+     * Saving never fetches on the reader's behalf: the page has to have been read and
+     * archived first, which is what stops an unreachable link being filed as if it
+     * were an article. An edit is already past that gate unless its URL changed.
      */
     private void save() {
         if (fetching || !pageRead || !binder.validate().isOk()) {

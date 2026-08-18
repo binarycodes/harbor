@@ -20,7 +20,6 @@
         <vaadin.version>25.2.5</vaadin.version>
         <icu4j.version>78.3</icu4j.version>
         <jsoup.version>1.23.1</jsoup.version>
-        <openhtmltopdf.version>1.1.73</openhtmltopdf.version>
         <ipaddress.version>5.6.2</ipaddress.version>
         <dramafinder.version>1.1.1</dramafinder.version>
         <playwright.version>1.59.0</playwright.version>
@@ -158,18 +157,6 @@
         <dependency>
             <groupId>com.github.seancfoley</groupId>
             <artifactId>ipaddress</artifactId>
-        </dependency>
-        <!--
-            Renders the archived PDF. io.github.openhtmltopdf, not the original
-            com.openhtmltopdf: that one last published in September 2021 and still
-            sits on PDFBox 2, while this fork is current and on PDFBox 3. LGPL-2.1
-            or later, which combines into this GPL-3.0 project; PDFBox underneath
-            is Apache-2.0.
-        -->
-        <dependency>
-            <groupId>io.github.openhtmltopdf</groupId>
-            <artifactId>openhtmltopdf-pdfbox</artifactId>
-            <version>${openhtmltopdf.version}</version>
         </dependency>
         <dependency>
             <groupId>org.projectlombok</groupId>

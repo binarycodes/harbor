@@ -11,6 +11,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.context.ApplicationContext;
 import org.springframework.test.context.ContextConfiguration;
 
@@ -42,6 +43,7 @@ import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 @ContextConfiguration(classes = { StubMetadataConfiguration.class, BrowserlessStorageConfiguration.class,
         HarborDatabase.class })
 @DisplayName("The library screen")
+@TestPropertySource(properties = "harbor.archive.browser-url=http://archiver.invalid:9222")
 class LibraryViewTest extends SpringBrowserlessTest {
 
     /**
@@ -207,6 +209,43 @@ class LibraryViewTest extends SpringBrowserlessTest {
         assertEquals(0, presenter.count());
     }
 
+    /**
+     * The other half of the gate. A page Harbor reached but could not archive must not
+     * be saveable either — archiving is a primary objective, and a bookmark without a
+     * copy of its page is a link that will rot.
+     */
+    @Test
+    @DisplayName("refuses to save a link whose page could not be archived")
+    void requiresAnArchiveBeforeSaving() throws InterruptedException {
+        navigate(LibraryView.class);
+        find(Button.class).withCaption("Save a link").single().click();
+        SaveLinkDialog dialog = find(SaveLinkDialog.class).single();
+        find(TextField.class, dialog).withLabel("URL").single()
+                .setValue("https://example.com/" + StubMetadataConfiguration.UNARCHIVABLE);
+
+        find(Button.class, dialog).withCaption("Fetch").single().click();
+        awaitUrlRefused(dialog);
+
+        assertFalse(submitButton(dialog).isEnabled());
+        assertEquals(0, presenter.count());
+    }
+
+    /**
+     * The refusal arrives through {@code ui.access} like the fetch itself, so the field
+     * has to be looked up again each round rather than held on to.
+     */
+    private void awaitUrlRefused(SaveLinkDialog dialog) throws InterruptedException {
+        for (int attempt = 0; attempt < 200 && !urlField(dialog).isInvalid(); attempt++) {
+            Thread.sleep(10);
+            roundTrip();
+        }
+        assertTrue(urlField(dialog).isInvalid(), "the URL should have been refused");
+    }
+
+    private TextField urlField(SaveLinkDialog dialog) {
+        return find(TextField.class, dialog).withLabel("URL").single();
+    }
+
     private Button submitButton(SaveLinkDialog dialog) {
         return find(Button.class, dialog).withCaption("Save to library").single();
     }
@@ -289,6 +328,8 @@ class LibraryViewTest extends SpringBrowserlessTest {
         draft.setType(BookmarkType.ARTICLE);
         draft.setReadingMinutes(7);
         draft.setContent("## Body\n\nSome words.");
+        // Every bookmark carries an archive now; add() refuses a draft without one.
+        draft.setArchive(StubMetadataConfiguration.STUB_ARCHIVE);
         draft.setTags(tags);
         return presenter.add(draft).id();
     }
