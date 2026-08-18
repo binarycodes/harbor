@@ -7,6 +7,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 import org.springframework.context.annotation.Bean;
 
+import io.binarycodes.harbor.library.service.ArchiveProperties;
 import io.binarycodes.harbor.library.service.OutboundFetchProperties;
 
 import com.vaadin.flow.component.dependency.StyleSheet;
@@ -19,7 +20,7 @@ import com.vaadin.flow.theme.aura.Aura;
  * storage, so the application keeps no server-side database.
  */
 @SpringBootApplication
-@EnableConfigurationProperties(OutboundFetchProperties.class)
+@EnableConfigurationProperties({ OutboundFetchProperties.class, ArchiveProperties.class })
 @Push
 @StyleSheet(Aura.STYLESHEET)
 @StyleSheet("styles.css")
