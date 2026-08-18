@@ -105,7 +105,7 @@ class OpenGraphMetadataResolverTest {
         @Test
         @DisplayName("the link is still described from its URL")
         void fallsBackToTheHeuristic() {
-            OpenGraphMetadataResolver resolver = new OpenGraphMetadataResolver(url -> {
+            OpenGraphMetadataResolver resolver = resolverOver(url -> {
                 throw new IOException("refused");
             });
 
@@ -124,7 +124,7 @@ class OpenGraphMetadataResolverTest {
         @Test
         @DisplayName("says the page was not read")
         void reportsThePageWasNotRead() {
-            OpenGraphMetadataResolver resolver = new OpenGraphMetadataResolver(url -> {
+            OpenGraphMetadataResolver resolver = resolverOver(url -> {
                 throw new IOException("refused");
             });
 
@@ -173,7 +173,17 @@ class OpenGraphMetadataResolverTest {
 
     private LinkMetadata resolve(String html) {
         OpenGraphMetadataResolver resolver =
-                new OpenGraphMetadataResolver(url -> Jsoup.parse(html, url));
+                resolverOver(url -> Jsoup.parse(html, url));
         return resolver.resolve("https://example.com/some-article");
+    }
+
+    /**
+     * Archiving is exercised by {@link ArticlePdfRendererTest}; here it is stubbed
+     * out so these tests stay about what a page says of itself.
+     */
+    private static OpenGraphMetadataResolver resolverOver(DocumentLoader loader) {
+        return new OpenGraphMetadataResolver(loader,
+                (document, title, url, archivedAt) -> java.util.Optional.empty(),
+                java.time.Clock.systemUTC());
     }
 }

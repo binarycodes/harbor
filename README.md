@@ -19,7 +19,14 @@ Markdown as you type.
 | Read later | The queue, for things you saved but haven't got to |
 | Highlights | Every passage you've kept, grouped under the article it came from |
 | Reader | The article text on its own, with notes and highlights beside it |
-| Save a link | Paste a URL; Harbor reads the page for the title, description, kind and body |
+| Save a link | Paste a URL; Harbor reads the page for the title, description, kind and body, and archives it as a PDF |
+
+**Every saved page is also archived as a PDF.** Harbor renders the article — with
+its pictures, which the reader's text does not keep — at the moment it fetches the
+page, and stores it alongside the bookmark. The reader offers it as *Archived PDF*.
+Images that are deferred behind `data-src` or `srcset` are resolved, and anything
+that cannot be fetched or embedded is left out rather than failing the save. The
+text is currently Latin-only: see [`docs/issues/007`](docs/issues/007-archive-font-coverage.md).
 
 Search covers everything at once — titles, descriptions, sites, tags, your notes,
 the article body, and your highlights. Sort by recency, title, or reading time.

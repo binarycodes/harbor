@@ -26,7 +26,8 @@ public record BookmarkSummary(
         long savedAt,
         int readingMinutes,
         int highlightCount,
-        boolean hasNotes) {
+        boolean hasNotes,
+        boolean hasArchive) {
 
     public BookmarkSummary {
         tags = tags == null ? List.of() : List.copyOf(tags);

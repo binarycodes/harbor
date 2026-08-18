@@ -54,6 +54,7 @@ Project-wide rules. Once a pattern is established here, follow it without prompt
 - Style Vaadin components through their own custom properties (`--vaadin-button-background`) rather than `background` on the host, which the component's base styles win against.
 - `box-sizing: border-box` is set globally in `shell.css`. Padded full-width containers otherwise overflow their parent at phone widths.
 - One-paragraph header comment per file; no section dividers.
+- The archived PDF's stylesheet (`resources/pdf/article.css`) is the one exception to all of the above: there is no browser to resolve a custom property, so its values are literal, it is outside the `styles.css` import chain, and it takes no part in light/dark.
 
 ## 7. Internationalization
 

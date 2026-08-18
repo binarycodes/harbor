@@ -31,4 +31,6 @@ interface BookmarkSummaryRow {
     int getHighlightCount();
 
     boolean getHasNotes();
+
+    boolean getHasArchive();
 }

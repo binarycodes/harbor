@@ -17,6 +17,7 @@ import com.vaadin.flow.shared.Registration;
 import io.binarycodes.harbor.base.ui.EmptyState;
 import io.binarycodes.harbor.base.ui.MainLayout;
 import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.service.BookmarkArchiveService;
 import io.binarycodes.harbor.library.ui.component.DeleteBookmarkDialog;
 import io.binarycodes.harbor.library.ui.component.ReaderArticle;
 import io.binarycodes.harbor.library.ui.component.ReaderHeader;
@@ -42,6 +43,7 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
     public static final String BOOKMARK_ID = "bookmarkId";
 
     private final LibraryPresenter presenter;
+    private final BookmarkArchiveService archives;
     private final ReaderHeader header = new ReaderHeader(this::toggleReadLater, this::editBookmark,
             this::deleteBookmark);
     private final ReaderArticle article = new ReaderArticle(this::addHighlight);
@@ -56,8 +58,9 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
     private Registration libraryChanges;
     private boolean rendered;
 
-    public ReaderView(LibraryPresenter presenter) {
+    public ReaderView(LibraryPresenter presenter, BookmarkArchiveService archives) {
         this.presenter = presenter;
+        this.archives = archives;
         sidePanel = new ReaderSidePanel(this::updateNotes, this::removeHighlight);
         // Saving an edit redraws the article in place: the change listener cannot, because
         // it deliberately leaves a rendered article alone while notes are being typed.
@@ -123,11 +126,25 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
         // without this the tab keeps the title the article had before it was corrected.
         getUI().ifPresent(ui -> ui.getPage().setTitle(pageTitle));
         header.show(bookmark);
+        showArchive(bookmark);
         article.show(bookmark);
         sidePanel.show(bookmark);
         header.setVisible(true);
         body.setVisible(true);
         missing.setVisible(false);
+    }
+
+    /**
+     * The bytes are fetched only if the reader clicks: opening an article should not
+     * read a PDF nobody asked for, and it is the largest thing stored.
+     */
+    private void showArchive(Bookmark bookmark) {
+        if (archives.exists(bookmark.id())) {
+            header.showArchive(bookmark.title(),
+                    () -> archives.findBytes(bookmark.id()).orElseGet(() -> new byte[0]));
+        } else {
+            header.hideArchive();
+        }
     }
 
     private void showLoading() {

@@ -347,6 +347,7 @@ public class SaveLinkDialog extends Dialog {
         draft.setType(metadata.type());
         draft.setReadingMinutes(metadata.readingMinutes());
         draft.setContent(metadata.content());
+        draft.setArchive(metadata.archive());
         if (isBlank(draft.getTitle())) {
             draft.setTitle(metadata.title());
         }

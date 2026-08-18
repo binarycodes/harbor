@@ -15,8 +15,9 @@ Status is one of:
 | # | Title | Status |
 |---|---|---|
 | [001](001-localstorage-migration.md) | Existing localStorage libraries are orphaned by the move to PostgreSQL | Done |
-| [002](002-lazy-loaded-images.md) | Lazy-loaded images defeat the PDF archive | Open — blocker |
+| [002](002-lazy-loaded-images.md) | Lazy-loaded images defeat the PDF archive | Done |
 | [003](003-search-index-tradeoff.md) | Trigram vs. tsvector for article-body search | Decided |
 | [004](004-optimistic-lock-handling.md) | Optimistic-lock failures reach the UI unhandled | Open |
 | [005](005-async-pdf-rendering.md) | PDF rendering runs inside the save and slows it down | Open |
 | [006](006-open-instance-before-auth.md) | A shared database with no accounts exposes every library | Open |
+| [007](007-archive-font-coverage.md) | The archived PDF has no glyphs beyond Latin | Open |

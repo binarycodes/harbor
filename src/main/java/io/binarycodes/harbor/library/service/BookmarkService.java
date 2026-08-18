@@ -39,12 +39,15 @@ import tools.jackson.databind.json.JsonMapper;
 public class BookmarkService {
 
     private final BookmarkRepository repository;
+    private final BookmarkArchiveService archives;
     private final LibraryOwner owner;
     private final Clock clock;
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
-    BookmarkService(BookmarkRepository repository, LibraryOwner owner, Clock clock) {
+    BookmarkService(BookmarkRepository repository, BookmarkArchiveService archives,
+            LibraryOwner owner, Clock clock) {
         this.repository = repository;
+        this.archives = archives;
         this.owner = owner;
         this.clock = clock;
     }
@@ -126,7 +129,9 @@ public class BookmarkService {
                 draft.getContent(),
                 "",
                 List.of()), entity, owner.current());
-        return BookmarkMapper.toBookmark(save(entity));
+        Bookmark saved = BookmarkMapper.toBookmark(save(entity));
+        keepArchive(saved.id(), draft);
+        return saved;
     }
 
     /**
@@ -156,6 +161,7 @@ public class BookmarkService {
                 draft.getContent(),
                 existing.notes(),
                 existing.highlights()));
+        keepArchive(id, draft);
     }
 
     @Transactional
@@ -221,6 +227,17 @@ public class BookmarkService {
             imported++;
         }
         return imported;
+    }
+
+    /**
+     * Only when the draft actually carries one. An edit that did not re-fetch has no
+     * archive to offer, and the one already stored is the copy of the page — losing
+     * it because a title was corrected would be the same mistake as losing the notes.
+     */
+    private void keepArchive(String bookmarkId, LinkDraft draft) {
+        if (draft.getArchive() != null && draft.getArchive().length > 0) {
+            archives.store(bookmarkId, draft.getArchive(), clock.millis());
+        }
     }
 
     private void refuseDuplicate(String url, String allowedId) {

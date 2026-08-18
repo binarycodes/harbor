@@ -1,6 +1,6 @@
 # 002 — Lazy-loaded images defeat the PDF archive
 
-**Status:** Open — blocker for the PDF archive commit.
+**Status:** Done — `ArticleImageSource`, with the fixture cases below as tests.
 
 ## Context
 

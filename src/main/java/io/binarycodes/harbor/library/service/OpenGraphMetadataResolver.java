@@ -2,6 +2,7 @@ package io.binarycodes.harbor.library.service;
 
 import java.io.IOException;
 import java.net.URI;
+import java.time.Clock;
 import java.net.URISyntaxException;
 import java.util.List;
 import java.util.Locale;
@@ -27,6 +28,10 @@ import io.binarycodes.harbor.library.domain.BookmarkType;
  *
  * <p>An address the deployment refuses to fetch is the exception: that is a decision
  * worth reporting rather than a page that happened to be unreachable.
+ *
+ * <p>Reading the page is also the moment it is archived, since it is the one moment
+ * the page is known to be reachable. A page that will not render is saved without an
+ * archive rather than not saved.
  */
 @Component
 public class OpenGraphMetadataResolver implements MetadataResolver {
@@ -34,10 +39,14 @@ public class OpenGraphMetadataResolver implements MetadataResolver {
     private static final Logger LOGGER = LoggerFactory.getLogger(OpenGraphMetadataResolver.class);
 
     private final DocumentLoader documentLoader;
+    private final ArticleArchiver archiver;
+    private final Clock clock;
     private final UrlHeuristicMetadata fallback = new UrlHeuristicMetadata();
 
-    OpenGraphMetadataResolver(DocumentLoader documentLoader) {
+    OpenGraphMetadataResolver(DocumentLoader documentLoader, ArticleArchiver archiver, Clock clock) {
         this.documentLoader = documentLoader;
+        this.archiver = archiver;
+        this.clock = clock;
     }
 
     @Override
@@ -57,15 +66,21 @@ public class OpenGraphMetadataResolver implements MetadataResolver {
         }
 
         String content = ArticleExtractor.toMarkdown(document);
+        String title = firstNonBlank(meta(document, "og:title"), document.title(), fromUrl.title());
+        // The page is already in hand, so the archive costs its images and nothing
+        // else. It is rendered here rather than later because this is the one moment
+        // the page is known to be reachable.
+        byte[] archive = archiver.archive(document, title, url, clock.millis()).orElse(null);
         return new LinkMetadata(
                 firstNonBlank(meta(document, "og:site_name"), fromUrl.site()),
-                firstNonBlank(meta(document, "og:title"), document.title(), fromUrl.title()),
+                title,
                 firstNonBlank(meta(document, "og:description"), meta(document, "description")),
                 fromUrl.tags(),
                 typeOf(document, fromUrl.type()),
                 ReadingTime.minutes(content),
                 content,
-                true);
+                true,
+                archive);
     }
 
     /**

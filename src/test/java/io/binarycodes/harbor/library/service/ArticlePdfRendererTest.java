@@ -132,7 +132,7 @@ class ArticlePdfRendererTest {
     @DisplayName("archives without an image whose host the deployment refuses")
     void skipsABlockedImage() {
         // No allowed ranges, so loopback is refused exactly as any private address is.
-        byte[] pdf = renderer(List.of()).render(
+        byte[] pdf = renderer(List.of()).archive(
                 document("<article><p>%s</p><img src='%s'/></article>"
                         .formatted(prose(), url("/photo.png"))),
                 "Title", "https://example.com/one", ARCHIVED_AT)
@@ -222,13 +222,13 @@ class ArticlePdfRendererTest {
     void archivesNothingWithoutAnArticle() {
         assertTrue(archive("<p>too short to be an article</p>").isPresent(),
                 "a thin page still renders; it is the reader's text that has a floor");
-        assertTrue(renderer(List.of("127.0.0.0/8")).render(null, "Title", "https://example.com", 0L)
+        assertTrue(renderer(List.of("127.0.0.0/8")).archive(null, "Title", "https://example.com", 0L)
                 .isEmpty(), "no document means no archive");
     }
 
     private Optional<byte[]> archive(String bodyHtml) {
         return renderer(List.of("127.0.0.0/8"))
-                .render(document(bodyHtml), "Title", "https://example.com/one", ARCHIVED_AT);
+                .archive(document(bodyHtml), "Title", "https://example.com/one", ARCHIVED_AT);
     }
 
     private Element articleWith(String imageHtml) {

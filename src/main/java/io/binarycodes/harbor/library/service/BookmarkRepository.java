@@ -49,7 +49,8 @@ interface BookmarkRepository extends JpaRepository<BookmarkEntity, UUID> {
                    b.saved_at as "savedAt",
                    b.reading_minutes as "readingMinutes",
                    jsonb_array_length(b.highlights) as "highlightCount",
-                   (b.notes <> '') as "hasNotes"
+                   (b.notes <> '') as "hasNotes",
+                   exists (select 1 from bookmark_archive a where a.bookmark_id = b.id) as "hasArchive"
             from bookmark b
             where b.owner_id = cast(:ownerId as text)
               and (cast(:readLaterOnly as boolean) = false or b.read_later = true)

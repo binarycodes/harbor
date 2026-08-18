@@ -62,7 +62,8 @@ final class BookmarkMapper {
                         row.getSavedAt(),
                         row.getReadingMinutes(),
                         row.getHighlightCount(),
-                        row.getHasNotes()))
+                        row.getHasNotes(),
+                        row.getHasArchive()))
                 .toList();
     }
 

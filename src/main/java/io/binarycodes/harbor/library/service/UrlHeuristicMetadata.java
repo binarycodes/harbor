@@ -52,7 +52,8 @@ public final class UrlHeuristicMetadata implements MetadataResolver {
                 .findFirst()
                 .orElse(new HostRule(null, BookmarkType.ARTICLE, List.of("Reading")));
 
-        return new LinkMetadata(host, title(parsed, host), "", rule.tags(), rule.type(), 0, "", false);
+        return new LinkMetadata(host, title(parsed, host), "", rule.tags(), rule.type(), 0, "",
+                false, null);
     }
 
     static String host(URI uri) {

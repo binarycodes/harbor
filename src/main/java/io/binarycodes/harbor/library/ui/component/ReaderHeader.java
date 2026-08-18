@@ -1,5 +1,7 @@
 package io.binarycodes.harbor.library.ui.component;
 
+import java.util.function.Supplier;
+
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.html.Anchor;
@@ -15,13 +17,14 @@ import io.binarycodes.harbor.library.ui.view.LibraryView;
 /**
  * The reader's top bar: the way back to the library, where the article came from,
  * and the things worth doing to a whole article — queueing it, correcting its
- * details, deleting it, and leaving for the original.
+ * details, deleting it, taking the archived copy, and leaving for the original.
  */
 public class ReaderHeader extends HorizontalLayout {
 
     private final Span site = new Span();
     private final Button readLaterToggle = new Button();
     private final Anchor original = new Anchor();
+    private final ArchiveDownload archive = new ArchiveDownload();
 
     public ReaderHeader(Runnable onToggleReadLater, Runnable onEdit, Runnable onDelete) {
         addClassName("reader-header");
@@ -56,13 +59,25 @@ public class ReaderHeader extends HorizontalLayout {
         delete.addClassName("reader-delete");
         delete.showLabel();
 
-        HorizontalLayout actions = new HorizontalLayout(readLaterToggle, edit, delete, original);
+        HorizontalLayout actions = new HorizontalLayout(readLaterToggle, edit, delete, archive, original);
         actions.addClassName("reader-actions");
         actions.setPadding(false);
         actions.setAlignItems(Alignment.CENTER);
 
         add(back, origin, actions);
         setFlexGrow(1, origin);
+    }
+
+    /**
+     * Offers the archive, or hides the control when this bookmark has none — a page
+     * that would not render is saved without one.
+     */
+    public void showArchive(String title, Supplier<byte[]> bytes) {
+        archive.show(title, bytes);
+    }
+
+    public void hideArchive() {
+        archive.hide();
     }
 
     public void show(Bookmark bookmark) {

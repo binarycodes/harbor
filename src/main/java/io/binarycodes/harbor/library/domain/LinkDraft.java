@@ -28,6 +28,12 @@ public class LinkDraft {
     private int readingMinutes;
     private String content;
 
+    /**
+     * The archived PDF, when the page was just read. Not bound to any field — the
+     * dialog carries it from the fetch to the save without showing it.
+     */
+    private byte[] archive;
+
     public List<String> tagsOrEmpty() {
         return tags == null ? List.of() : tags;
     }

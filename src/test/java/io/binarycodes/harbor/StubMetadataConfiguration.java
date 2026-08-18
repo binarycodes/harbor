@@ -33,11 +33,19 @@ public class StubMetadataConfiguration {
     public static final int LONG_READ_MINUTES = 30;
     public static final int SHORT_READ_MINUTES = 2;
 
+    /**
+     * Enough of a PDF for the download to be exercised without rendering one. The
+     * magic bytes are what a reader's viewer looks at first.
+     */
+    public static final byte[] STUB_ARCHIVE =
+            "%PDF-1.7\nstubbed archive\n%%EOF".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+
     @Bean
     @Primary
     public MetadataResolver stubMetadataResolver() {
         return url -> new LinkMetadata(RESOLVED_SITE, titleFor(url), RESOLVED_DESCRIPTION, RESOLVED_TAGS,
-                BookmarkType.ARTICLE, minutesFor(url), "## A heading\n\n" + RESOLVED_PASSAGE, true);
+                BookmarkType.ARTICLE, minutesFor(url), "## A heading\n\n" + RESOLVED_PASSAGE, true,
+                STUB_ARCHIVE);
     }
 
     private static String titleFor(String url) {

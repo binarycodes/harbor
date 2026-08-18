@@ -40,7 +40,7 @@ import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
  * archive, never a save that fails.
  */
 @Component
-class ArticlePdfRenderer {
+class ArticlePdfRenderer implements ArticleArchiver {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(ArticlePdfRenderer.class);
     private static final DateTimeFormatter ARCHIVED_ON =
@@ -75,11 +75,8 @@ class ArticlePdfRenderer {
         this.properties = properties;
     }
 
-    /**
-     * @return the archived article, or empty when the page has no article worth
-     *         keeping or would not render
-     */
-    Optional<byte[]> render(Document document, String title, String url, long archivedAt) {
+    @Override
+    public Optional<byte[]> archive(Document document, String title, String url, long archivedAt) {
         Element root = ArticleContent.cleaned(document);
         if (root == null) {
             return Optional.empty();
