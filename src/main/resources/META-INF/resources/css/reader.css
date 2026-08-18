@@ -16,7 +16,8 @@
 }
 
 .reader-back,
-.reader-original {
+.reader-original,
+.reader-archive {
     display: inline-flex;
     align-items: center;
     gap: var(--vaadin-gap-s);
@@ -31,7 +32,8 @@
 }
 
 .reader-back:hover,
-.reader-original:hover {
+.reader-original:hover,
+.reader-archive:hover {
     background: var(--vaadin-background-container);
 }
 
