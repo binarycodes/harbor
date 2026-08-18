@@ -32,15 +32,15 @@ jobs:
       # Harbor archives with a real browser and will not save a page it cannot
       # archive, so the suite needs one. Built from the repository rather than pulled,
       # for the same reason the image is ours: the flags are visible here.
-      - name: build and start the archiving browser
-        run: |
-          docker build -t harbor-chromium:ci environment/chromium
-          docker run -d --name harbor-chromium -p 9222:9222 --shm-size=512m harbor-chromium:ci
-          for i in $(seq 1 30); do
-            if curl -fsS -o /dev/null http://127.0.0.1:9222/json/version; then break; fi
-            sleep 1
-          done
-          curl -fsS http://127.0.0.1:9222/json/version
+      # Started the way a developer starts it, so this covers the compose service and
+      # its healthcheck as well as the image — none of which anything else exercises,
+      # since the tests get their PostgreSQL from Testcontainers rather than compose.
+      # --wait means the step only returns once the browser reports healthy.
+      - name: start the archiving browser
+        run: ./run.sh browser up
+
+      - name: check the browser answers
+        run: curl -fsS http://127.0.0.1:9222/json/version
 
       - name: maven verify
         run: |
