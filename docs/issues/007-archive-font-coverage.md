@@ -1,21 +1,28 @@
-# 007 — The archive has no glyphs beyond Latin
+# 007 — The archive may have no glyphs beyond Latin
 
-**Status:** Resolved — the archiving browser carries the fonts.
+**Status:** Open, and now a question about the sidecar rather than about Harbor.
 
-`environment/chromium/Dockerfile` installs `fonts-noto-cjk` and
-`fonts-noto-color-emoji` alongside `fonts-liberation`, and Chromium picks a face per
-script the way any browser does. The base-14 limitation below belonged to
-OpenHTMLtoPDF, which no longer renders anything.
+Harbor no longer renders PDFs itself, so the base-14 limitation described below is
+gone with OpenHTMLtoPDF. What replaces it is whatever fonts the archiving browser
+happens to have. That is `chromedp/headless-shell`, which is about 143 MB — Chromium
+and very little else — so CJK and emoji coverage is almost certainly absent.
 
-The warning it ends on still stands for whoever builds a sidecar of their own: drop
-the font packages and archives lose their glyphs silently, with a PDF of the right
-size and the wrong content.
+Almost certainly, not certainly: it has not been checked. Archiving a page in
+Chinese and looking at the result is a two-minute test and nobody has run it.
+
+If it does turn out to be missing, the fix is three lines — a derived image adding
+`fonts-noto-cjk` on top of the published one — which keeps upstream's patch cadence
+while filling the gap. That was briefly the design here, on the assumption the fonts
+were needed; it was dropped because maintaining an image to solve a problem nobody
+had confirmed is the wrong order to do things in.
 
 ## Context
 
-`pdf/article.css` sets `font-family: sans-serif`, which the renderer maps to one of
-the PDF base-14 fonts — Helvetica. Those cover Latin, and that is all. No font is
-bundled with Harbor.
+When Harbor rendered its own PDFs, `pdf/article.css` set `font-family: sans-serif`,
+which the renderer mapped to one of the PDF base-14 fonts — Helvetica. Those cover
+Latin, and that is all. The browser replaces that mechanism entirely, but inherits
+the same question in a different place: a browser can only draw the glyphs its
+container has.
 
 So an archived article in Chinese, Japanese, Korean, Arabic, Hebrew, Thai, Greek or
 Cyrillic renders its text as blank boxes or nothing at all. The same goes for emoji,

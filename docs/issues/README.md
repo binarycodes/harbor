@@ -21,5 +21,5 @@ Status is one of:
 | [004](004-optimistic-lock-handling.md) | Optimistic-lock failures reach the UI unhandled | Open |
 | [005](005-async-pdf-rendering.md) | PDF rendering runs inside the save and slows it down | Open |
 | [006](006-open-instance-before-auth.md) | A shared database with no accounts exposes every library | Open |
-| [007](007-archive-font-coverage.md) | The archived PDF has no glyphs beyond Latin | Resolved |
+| [007](007-archive-font-coverage.md) | The archive may have no glyphs beyond Latin | Open |
 | [008](008-consent-overlays.md) | An archive can be a picture of a cookie wall | Open |

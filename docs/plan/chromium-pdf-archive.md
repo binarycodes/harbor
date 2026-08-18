@@ -160,6 +160,13 @@ magic bytes; the ad-hoc verification scripts used it, the suite did not.
 
 ## The sidecar
 
+> **Superseded during implementation.** There is no image of our own. Chromium binds
+> its DevTools port to loopback whatever `--remote-debugging-address` says, so a
+> hand-rolled image was unreachable from the app; `chromedp/headless-shell` already
+> carries the forwarder that works around it, is published multi-arch and pinned per
+> Chromium version, and removes an image to patch. The font argument below rested on
+> an assumption that was never tested — see `docs/issues/007`.
+
 `environment/chromium/Dockerfile` — ours rather than a public browser image, so the
 flags and provenance are visible here and there is no third-party licence to reason
 about:

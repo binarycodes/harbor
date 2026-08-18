@@ -91,11 +91,11 @@ services:
         condition: service_started
     restart: unless-stopped
 
-  # Build this from environment/chromium in the repository; there is no published
-  # image for it. Chromium needs more than the default 64 MB of /dev/shm, and wants
-  # a ceiling of its own.
+  # chromedp's headless-shell: a published, version-tagged Chromium that already
+  # exposes DevTools on a reachable address. Chromium needs more than the default
+  # 64 MB of /dev/shm, and wants a ceiling of its own.
   chromium:
-    build: https://github.com/binarycodes/harbor.git#main:environment/chromium
+    image: chromedp/headless-shell:151.0.7922.109
     shm_size: 512m
     mem_limit: 1g
     restart: unless-stopped

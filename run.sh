@@ -115,7 +115,7 @@ task_db() {
 task_browser() {
     local action="${1:-up}"
     case "${action}" in
-        up)    compose up -d --build --wait chromium \
+        up)    compose up -d --wait chromium \
                    && echo "Chromium is up on 9222; set HARBOR_BROWSER_URL=http://localhost:9222." ;;
         down)  compose stop chromium && echo "Chromium stopped." ;;
         logs)  compose logs -f chromium ;;
