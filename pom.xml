@@ -119,6 +119,16 @@
             <groupId>org.flywaydb</groupId>
             <artifactId>flyway-database-postgresql</artifactId>
         </dependency>
+        <!--
+            Spring Boot 4 splits auto-configuration into a module per technology,
+            so flyway-core alone is the library with nothing wiring it up: the
+            migrations never run and Hibernate then fails validation against a
+            schema nothing created.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-flyway</artifactId>
+        </dependency>
         <dependency>
             <groupId>com.ibm.icu</groupId>
             <artifactId>icu4j</artifactId>
