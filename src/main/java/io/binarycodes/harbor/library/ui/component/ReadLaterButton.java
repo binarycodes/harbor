@@ -4,7 +4,7 @@ import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.icon.VaadinIcon;
 
-import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.domain.BookmarkSummary;
 
 /**
  * The queue-for-later toggle that sits on every rendering of a bookmark. It stops
@@ -13,7 +13,7 @@ import io.binarycodes.harbor.library.domain.Bookmark;
  */
 public class ReadLaterButton extends Button {
 
-    public ReadLaterButton(Bookmark bookmark, BookmarkActions actions) {
+    public ReadLaterButton(BookmarkSummary bookmark, BookmarkActions actions) {
         super(bookmark.readLater() ? VaadinIcon.BOOKMARK.create() : VaadinIcon.BOOKMARK_O.create());
         addThemeVariants(ButtonVariant.TERTIARY);
         addClassName("read-later-button");

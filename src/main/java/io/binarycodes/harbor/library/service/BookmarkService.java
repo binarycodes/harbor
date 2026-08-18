@@ -15,7 +15,9 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.domain.BookmarkSummary;
 import io.binarycodes.harbor.library.domain.Highlight;
+import io.binarycodes.harbor.library.domain.HighlightGroup;
 import io.binarycodes.harbor.library.domain.LibraryQuery;
 import io.binarycodes.harbor.library.domain.LibraryScope;
 import io.binarycodes.harbor.library.domain.LinkDraft;
@@ -48,8 +50,8 @@ public class BookmarkService {
     }
 
     @Transactional(readOnly = true)
-    public List<Bookmark> find(LibraryQuery query) {
-        return BookmarkMapper.toBookmarks(repository.findMatching(
+    public List<BookmarkSummary> find(LibraryQuery query) {
+        return BookmarkMapper.toSummaries(repository.findMatching(
                 owner.current(),
                 query.scope() == LibraryScope.READ_LATER,
                 jsonMapper.writeValueAsString(query.tags()),
@@ -66,8 +68,8 @@ public class BookmarkService {
     }
 
     @Transactional(readOnly = true)
-    public List<Bookmark> withHighlights() {
-        return BookmarkMapper.toBookmarks(repository.findAnnotated(owner.current()));
+    public List<HighlightGroup> withHighlights() {
+        return BookmarkMapper.toHighlightGroups(repository.findAnnotated(owner.current()));
     }
 
     @Transactional(readOnly = true)
@@ -131,6 +133,10 @@ public class BookmarkService {
      * Writes the dialog's fields back over an existing bookmark. What the reader
      * added themselves — the notes, the highlights, and when they saved it — is
      * carried across untouched: editing a title is not a reason to lose any of it.
+     *
+     * <p>This one is an overwrite, so a version conflict is not something to
+     * quietly retry: whatever the other session wrote would be lost. It propagates,
+     * and the reader is told.
      */
     @Transactional
     public void update(String id, LinkDraft draft) {
@@ -225,6 +231,12 @@ public class BookmarkService {
                 });
     }
 
+    /**
+     * Each of these is a function of whatever the bookmark currently says — flip
+     * the flag, append the passage — so a version conflict can be answered by
+     * reading again and recomputing. That retry cannot happen here, inside the
+     * transaction the conflict just poisoned; the presenter calls again instead.
+     */
     private void replace(String id, UnaryOperator<Bookmark> change) {
         UUID key = BookmarkMapper.idOf(id);
         if (key == null) {

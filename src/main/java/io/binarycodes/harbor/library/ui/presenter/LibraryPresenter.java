@@ -7,6 +7,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.stereotype.Component;
 
 import com.vaadin.flow.component.UI;
@@ -15,7 +16,9 @@ import com.vaadin.flow.spring.annotation.VaadinSessionScope;
 
 import io.binarycodes.harbor.base.ui.BrowserStorage;
 import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.domain.BookmarkSummary;
 import io.binarycodes.harbor.library.domain.ColorSchemePreference;
+import io.binarycodes.harbor.library.domain.HighlightGroup;
 import io.binarycodes.harbor.library.domain.LibraryQuery;
 import io.binarycodes.harbor.library.domain.LinkDraft;
 import io.binarycodes.harbor.library.domain.TagCount;
@@ -52,6 +55,7 @@ public class LibraryPresenter {
     private final BrowserStorage browserStorage;
     private final LegacyLibraryImport legacyLibraryImport;
     private final List<Runnable> changeListeners = new ArrayList<>();
+    private final List<Runnable> conflictListeners = new ArrayList<>();
 
     private ColorSchemePreference colorScheme = ColorSchemePreference.SYSTEM;
     private boolean loaded;
@@ -69,6 +73,17 @@ public class LibraryPresenter {
     public Registration addChangeListener(Runnable listener) {
         changeListeners.add(listener);
         return () -> changeListeners.remove(listener);
+    }
+
+    /**
+     * Told when an edit was dropped because another session had already changed
+     * that bookmark. Nothing else can report it: the library is shared while there
+     * are no accounts, and a lost edit that is never mentioned is indistinguishable
+     * from one that was saved.
+     */
+    public Registration addConflictListener(Runnable listener) {
+        conflictListeners.add(listener);
+        return () -> conflictListeners.remove(listener);
     }
 
     /**
@@ -110,7 +125,7 @@ public class LibraryPresenter {
         return importedFromBrowser;
     }
 
-    public List<Bookmark> find(LibraryQuery query) {
+    public List<BookmarkSummary> find(LibraryQuery query) {
         return bookmarkService.find(query);
     }
 
@@ -118,7 +133,7 @@ public class LibraryPresenter {
         return bookmarkService.findById(id);
     }
 
-    public List<Bookmark> withHighlights() {
+    public List<HighlightGroup> withHighlights() {
         return bookmarkService.withHighlights();
     }
 
@@ -166,28 +181,28 @@ public class LibraryPresenter {
     }
 
     public void update(String id, LinkDraft draft) {
-        bookmarkService.update(id, draft);
-        notifyListeners();
+        try {
+            bookmarkService.update(id, draft);
+            notifyListeners();
+        } catch (OptimisticLockingFailureException changedElsewhere) {
+            reportConflict();
+        }
     }
 
     public void toggleReadLater(String id) {
-        bookmarkService.toggleReadLater(id);
-        notifyListeners();
+        retrying(() -> bookmarkService.toggleReadLater(id));
     }
 
     public void updateNotes(String id, String notes) {
-        bookmarkService.updateNotes(id, notes);
-        notifyListeners();
+        retrying(() -> bookmarkService.updateNotes(id, notes));
     }
 
     public void addHighlight(String id, String text) {
-        bookmarkService.addHighlight(id, text);
-        notifyListeners();
+        retrying(() -> bookmarkService.addHighlight(id, text));
     }
 
     public void removeHighlight(String id, int index) {
-        bookmarkService.removeHighlight(id, index);
-        notifyListeners();
+        retrying(() -> bookmarkService.removeHighlight(id, index));
     }
 
     public void remove(String id) {
@@ -214,6 +229,24 @@ public class LibraryPresenter {
                     }
                     onFailed.accept(failure instanceof CompletionException ? failure.getCause() : failure);
                 }));
+    }
+
+    private void retrying(Runnable mutation) {
+        if (OptimisticRetry.once(mutation)) {
+            notifyListeners();
+        } else {
+            reportConflict();
+        }
+    }
+
+    /**
+     * The screens redraw as well as being told, so that what the reader is looking
+     * at is the bookmark as it now stands rather than the copy their edit was
+     * based on.
+     */
+    private void reportConflict() {
+        notifyListeners();
+        List.copyOf(conflictListeners).forEach(Runnable::run);
     }
 
     private void notifyListeners() {

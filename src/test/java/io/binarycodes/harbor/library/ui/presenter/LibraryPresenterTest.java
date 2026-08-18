@@ -115,8 +115,10 @@ class LibraryPresenterTest {
 
         assertEquals(1, presenter.importedFromBrowser());
         assertEquals(1, presenter.count());
-        assertEquals("worth remembering",
-                presenter.find(LibraryQuery.of(LibraryScope.ALL)).getFirst().notes());
+        // The notes came across; a listing reports only that there are some, so the
+        // whole bookmark is read back to see them.
+        String id = presenter.find(LibraryQuery.of(LibraryScope.ALL)).getFirst().id();
+        assertEquals("worth remembering", presenter.findById(id).orElseThrow().notes());
     }
 
     /**

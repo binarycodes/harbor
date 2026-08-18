@@ -7,7 +7,7 @@ import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 
-import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.domain.BookmarkSummary;
 
 /**
  * A bookmark as a wide row: the same information as the card, laid out for
@@ -20,7 +20,7 @@ import io.binarycodes.harbor.library.domain.Bookmark;
  */
 public class BookmarkRow extends HorizontalLayout {
 
-    public BookmarkRow(Bookmark bookmark, BookmarkActions actions) {
+    public BookmarkRow(BookmarkSummary bookmark, BookmarkActions actions) {
         addClassName("bookmark-row");
         getElement().setAttribute("role", "listitem");
         setWidthFull();
@@ -41,7 +41,7 @@ public class BookmarkRow extends HorizontalLayout {
      * Grouped so the row's own gap separates the actions from the date rather than
      * spacing them out from each other.
      */
-    private Div actions(Bookmark bookmark, BookmarkActions actions) {
+    private Div actions(BookmarkSummary bookmark, BookmarkActions actions) {
         Div group = new Div(new ReadLaterButton(bookmark, actions),
                 new EditBookmarkButton(() -> actions.edit(bookmark)),
                 new DeleteBookmarkButton(() -> actions.remove(bookmark)));
@@ -49,7 +49,7 @@ public class BookmarkRow extends HorizontalLayout {
         return group;
     }
 
-    private Div text(Bookmark bookmark) {
+    private Div text(BookmarkSummary bookmark) {
         H3 title = new H3(bookmark.title());
         title.addClassName("bookmark-row-title");
         Span description = new Span(bookmark.description());
@@ -60,7 +60,7 @@ public class BookmarkRow extends HorizontalLayout {
         return text;
     }
 
-    private Div details(Bookmark bookmark) {
+    private Div details(BookmarkSummary bookmark) {
         Span site = new Span(VaadinIcon.GLOBE.create(), new Span(bookmark.site()));
         site.addClassName("bookmark-metadata-item");
         Span readingTime = new Span(getTranslation("bookmark.reading_time", bookmark.readingMinutes()));

@@ -33,28 +33,47 @@ interface BookmarkRepository extends JpaRepository<BookmarkEntity, UUID> {
      * The listing. A scope, a set of tags that all have to be present, and a
      * substring of anything searchable — each one skipped when it was not asked
      * for, so that one query serves every combination the toolbar can produce.
+     *
+     * <p>Every column a listing draws, and deliberately not {@code content}: this
+     * returns the whole library at once, and the article bodies would dwarf
+     * everything else put together.
      */
     @Query(value = """
-            select b.* from bookmark b
+            select cast(b.id as text) as "id",
+                   b.title as "title",
+                   b.site as "site",
+                   b.description as "description",
+                   b.tags::text as "tags",
+                   b.type as "type",
+                   b.read_later as "readLater",
+                   b.saved_at as "savedAt",
+                   b.reading_minutes as "readingMinutes",
+                   jsonb_array_length(b.highlights) as "highlightCount",
+                   (b.notes <> '') as "hasNotes"
+            from bookmark b
             where b.owner_id = cast(:ownerId as text)
               and (cast(:readLaterOnly as boolean) = false or b.read_later = true)
               and (cast(:tags as jsonb) = '[]'::jsonb or b.tags @> cast(:tags as jsonb))
               and (cast(:searchText as text) = ''
                    or b.search_text like '%' || cast(:searchText as text) || '%')
             """, nativeQuery = true)
-    List<BookmarkEntity> findMatching(@Param("ownerId") String ownerId,
+    List<BookmarkSummaryRow> findMatching(@Param("ownerId") String ownerId,
             @Param("readLaterOnly") boolean readLaterOnly,
             @Param("tags") String tags,
             @Param("searchText") String searchText,
             Sort sort);
 
     @Query(value = """
-            select b.* from bookmark b
+            select cast(b.id as text) as "id",
+                   b.title as "title",
+                   b.site as "site",
+                   b.highlights::text as "highlights"
+            from bookmark b
             where b.owner_id = cast(:ownerId as text)
               and jsonb_array_length(b.highlights) > 0
             order by b.saved_at desc
             """, nativeQuery = true)
-    List<BookmarkEntity> findAnnotated(@Param("ownerId") String ownerId);
+    List<HighlightGroupRow> findAnnotated(@Param("ownerId") String ownerId);
 
     @Query(value = """
             select coalesce(sum(jsonb_array_length(b.highlights)), 0) from bookmark b

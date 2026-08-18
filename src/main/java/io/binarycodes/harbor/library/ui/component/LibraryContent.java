@@ -14,7 +14,7 @@ import com.vaadin.flow.router.RouteParameters;
 import com.vaadin.flow.shared.Registration;
 
 import io.binarycodes.harbor.base.ui.EmptyState;
-import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.domain.BookmarkSummary;
 import io.binarycodes.harbor.library.domain.LibraryQuery;
 import io.binarycodes.harbor.library.domain.LibraryScope;
 import io.binarycodes.harbor.library.ui.presenter.LibraryFilter;
@@ -65,24 +65,29 @@ public class LibraryContent extends VerticalLayout implements BookmarkActions, H
     }
 
     @Override
-    public void open(Bookmark bookmark) {
+    public void open(BookmarkSummary bookmark) {
         UI.getCurrent().navigate(ReaderView.class,
                 new RouteParameters(ReaderView.BOOKMARK_ID, bookmark.id()));
     }
 
     @Override
-    public void toggleReadLater(Bookmark bookmark) {
+    public void toggleReadLater(BookmarkSummary bookmark) {
         presenter.toggleReadLater(bookmark.id());
     }
 
+    /**
+     * The dialog edits the article as well as the details, and a listing carries no
+     * article — so the whole bookmark is read back for the one that is being
+     * opened.
+     */
     @Override
-    public void edit(Bookmark bookmark) {
-        editDialog.openFor(bookmark);
+    public void edit(BookmarkSummary bookmark) {
+        presenter.findById(bookmark.id()).ifPresent(editDialog::openFor);
     }
 
     @Override
-    public void remove(Bookmark bookmark) {
-        new DeleteBookmarkDialog(bookmark, () -> presenter.remove(bookmark.id())).open();
+    public void remove(BookmarkSummary bookmark) {
+        new DeleteBookmarkDialog(bookmark.title(), () -> presenter.remove(bookmark.id())).open();
     }
 
     @Override
@@ -103,7 +108,7 @@ public class LibraryContent extends VerticalLayout implements BookmarkActions, H
 
     private void refresh() {
         LibraryQuery query = libraryFilter.query(scope);
-        List<Bookmark> found = presenter.find(query);
+        List<BookmarkSummary> found = presenter.find(query);
 
         toolbar.setHeading(getTranslation(scope.titleKey()), summary(query, found.size()));
         toolbar.refresh();

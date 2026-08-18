@@ -4,7 +4,7 @@ import java.util.List;
 
 import com.vaadin.flow.component.html.Div;
 
-import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.domain.BookmarkSummary;
 import io.binarycodes.harbor.library.domain.ViewMode;
 
 /**
@@ -24,7 +24,7 @@ public class BookmarkListing extends Div {
         getElement().setAttribute("role", "list");
     }
 
-    public void show(List<Bookmark> bookmarks, ViewMode mode) {
+    public void show(List<BookmarkSummary> bookmarks, ViewMode mode) {
         removeAll();
         setClassName("bookmark-listing-cards", mode == ViewMode.CARDS);
         setClassName("bookmark-listing-rows", mode == ViewMode.ROWS);

@@ -159,7 +159,7 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
      * exists.
      */
     private void deleteBookmark() {
-        current().ifPresent(bookmark -> new DeleteBookmarkDialog(bookmark, () -> {
+        current().ifPresent(bookmark -> new DeleteBookmarkDialog(bookmark.title(), () -> {
             presenter.remove(bookmarkId);
             UI.getCurrent().navigate(LibraryView.class);
         }).open());

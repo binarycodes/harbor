@@ -5,12 +5,24 @@ import java.util.Locale;
 import java.util.UUID;
 
 import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.domain.BookmarkSummary;
+import io.binarycodes.harbor.library.domain.BookmarkType;
+import io.binarycodes.harbor.library.domain.Highlight;
+import io.binarycodes.harbor.library.domain.HighlightGroup;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Between the row and the record. The only place either shape knows the other
  * exists.
  */
 final class BookmarkMapper {
+
+    private static final JsonMapper JSON = JsonMapper.builder().build();
+    private static final TypeReference<List<String>> TAGS = new TypeReference<>() {
+    };
+    private static final TypeReference<List<Highlight>> HIGHLIGHTS = new TypeReference<>() {
+    };
 
     private BookmarkMapper() {
     }
@@ -35,6 +47,33 @@ final class BookmarkMapper {
 
     static List<Bookmark> toBookmarks(List<BookmarkEntity> entities) {
         return entities.stream().map(BookmarkMapper::toBookmark).toList();
+    }
+
+    static List<BookmarkSummary> toSummaries(List<BookmarkSummaryRow> rows) {
+        return rows.stream()
+                .map(row -> new BookmarkSummary(
+                        row.getId(),
+                        row.getTitle(),
+                        row.getSite(),
+                        row.getDescription(),
+                        JSON.readValue(row.getTags(), TAGS),
+                        BookmarkType.valueOf(row.getType()),
+                        row.getReadLater(),
+                        row.getSavedAt(),
+                        row.getReadingMinutes(),
+                        row.getHighlightCount(),
+                        row.getHasNotes()))
+                .toList();
+    }
+
+    static List<HighlightGroup> toHighlightGroups(List<HighlightGroupRow> rows) {
+        return rows.stream()
+                .map(row -> new HighlightGroup(
+                        row.getId(),
+                        row.getTitle(),
+                        row.getSite(),
+                        JSON.readValue(row.getHighlights(), HIGHLIGHTS)))
+                .toList();
     }
 
     /**

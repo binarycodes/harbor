@@ -27,6 +27,7 @@ import org.springframework.context.annotation.Primary;
 import io.binarycodes.harbor.HarborDatabase;
 
 import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.domain.BookmarkSummary;
 import io.binarycodes.harbor.library.domain.BookmarkType;
 import io.binarycodes.harbor.library.domain.Highlight;
 import io.binarycodes.harbor.library.domain.LibraryQuery;
@@ -104,8 +105,8 @@ class BookmarkServiceTest {
             clock.advance(Duration.ofMinutes(5));
             save("https://example.com/two", "Two");
 
-            List<Bookmark> found = service.find(LibraryQuery.of(LibraryScope.ALL));
-            assertEquals(List.of("Two", "One"), found.stream().map(Bookmark::title).toList());
+            List<BookmarkSummary> found = service.find(LibraryQuery.of(LibraryScope.ALL));
+            assertEquals(List.of("Two", "One"), found.stream().map(BookmarkSummary::title).toList());
         }
 
         @Test
@@ -165,9 +166,9 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("read later shows only what was queued")
         void narrowsToReadLater() {
-            List<Bookmark> found = service.find(LibraryQuery.of(LibraryScope.READ_LATER));
+            List<BookmarkSummary> found = service.find(LibraryQuery.of(LibraryScope.READ_LATER));
 
-            assertEquals(List.of("Local-first software"), found.stream().map(Bookmark::title).toList());
+            assertEquals(List.of("Local-first software"), found.stream().map(BookmarkSummary::title).toList());
         }
 
         @Test
@@ -175,9 +176,9 @@ class BookmarkServiceTest {
         void requiresEverySelectedTag() {
             LibraryQuery query = LibraryQuery.of(LibraryScope.ALL).withTags(Set.of("Web", "Research"));
 
-            List<Bookmark> found = service.find(query);
+            List<BookmarkSummary> found = service.find(query);
 
-            assertEquals(List.of("Local-first software"), found.stream().map(Bookmark::title).toList());
+            assertEquals(List.of("Local-first software"), found.stream().map(BookmarkSummary::title).toList());
         }
 
         @Test
@@ -196,7 +197,7 @@ class BookmarkServiceTest {
 
             LibraryQuery query = LibraryQuery.of(LibraryScope.ALL).withSearchText("rhythmic");
 
-            assertEquals(List.of("Deep Work"), service.find(query).stream().map(Bookmark::title).toList());
+            assertEquals(List.of("Deep Work"), service.find(query).stream().map(BookmarkSummary::title).toList());
         }
 
         @Test
@@ -207,7 +208,7 @@ class BookmarkServiceTest {
 
             LibraryQuery query = LibraryQuery.of(LibraryScope.ALL).withSearchText("increasingly valuable");
 
-            assertEquals(List.of("Deep Work"), service.find(query).stream().map(Bookmark::title).toList());
+            assertEquals(List.of("Deep Work"), service.find(query).stream().map(BookmarkSummary::title).toList());
         }
 
         @Test
@@ -361,13 +362,12 @@ class BookmarkServiceTest {
 
             assertEquals(1, service.importAll(List.of(saved)));
 
-            Bookmark restored = service.find(LibraryQuery.of(LibraryScope.ALL)).getFirst();
+            BookmarkSummary restored = service.find(LibraryQuery.of(LibraryScope.ALL)).getFirst();
             assertEquals("One", restored.title());
-            assertEquals("remember this", restored.notes());
+            assertTrue(restored.hasNotes());
             assertTrue(restored.readLater());
             assertEquals(1_600_000_000_000L, restored.savedAt());
-            assertEquals(List.of("a passage worth keeping"),
-                    restored.highlights().stream().map(Highlight::text).toList());
+            assertEquals(1, restored.highlightCount());
         }
 
         /**
@@ -525,7 +525,7 @@ class BookmarkServiceTest {
     }
 
     private List<String> titles(LibraryQuery query) {
-        return service.find(query).stream().map(Bookmark::title).toList();
+        return service.find(query).stream().map(BookmarkSummary::title).toList();
     }
 
     private Bookmark save(String url, String title) {

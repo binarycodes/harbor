@@ -61,6 +61,7 @@ public class MainLayout extends AppLayout {
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
         registrations.add(presenter.addChangeListener(this::onLibraryChanged));
+        registrations.add(presenter.addConflictListener(this::reportConflict));
         registrations.add(libraryFilter.addChangeListener(this::refreshSidebar));
         presenter.load();
         refreshSidebar();
@@ -119,6 +120,15 @@ public class MainLayout extends AppLayout {
         importReported = true;
         Notification.show(getTranslation(
                 imported == 1 ? "library.imported.one" : "library.imported.many", imported));
+    }
+
+    /**
+     * A shared library means two people can edit the same bookmark, and the one who
+     * loses has to be told — their change is gone, and the screen has just redrawn
+     * with someone else's.
+     */
+    private void reportConflict() {
+        Notification.show(getTranslation("library.conflict"));
     }
 
     private void refreshSidebar() {

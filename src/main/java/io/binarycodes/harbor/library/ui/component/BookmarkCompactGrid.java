@@ -8,17 +8,17 @@ import com.vaadin.flow.component.html.Div;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.data.renderer.ComponentRenderer;
 
-import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.domain.BookmarkSummary;
 
 /**
  * A bookmark list as a table, for when the reader wants to see as many rows at
  * once as the screen allows. All rows are rendered so the page scrolls as one
  * surface instead of trapping a second scrollbar inside the grid.
  */
-public class BookmarkCompactGrid extends Grid<Bookmark> {
+public class BookmarkCompactGrid extends Grid<BookmarkSummary> {
 
     public BookmarkCompactGrid(BookmarkActions actions) {
-        super(Bookmark.class, false);
+        super(BookmarkSummary.class, false);
         addClassName("bookmark-compact-grid");
         setWidthFull();
         setAllRowsVisible(true);
@@ -51,7 +51,7 @@ public class BookmarkCompactGrid extends Grid<Bookmark> {
         addItemClickListener(event -> actions.open(event.getItem()));
     }
 
-    public void setBookmarks(List<Bookmark> bookmarks) {
+    public void setBookmarks(List<BookmarkSummary> bookmarks) {
         setItems(bookmarks);
     }
 
@@ -59,7 +59,7 @@ public class BookmarkCompactGrid extends Grid<Bookmark> {
      * Both row actions in one column, so the table gains a single trailing column
      * rather than one per control.
      */
-    private Div actionsCell(Bookmark bookmark, BookmarkActions actions) {
+    private Div actionsCell(BookmarkSummary bookmark, BookmarkActions actions) {
         Div cell = new Div(new ReadLaterButton(bookmark, actions),
                 new EditBookmarkButton(() -> actions.edit(bookmark)),
                 new DeleteBookmarkButton(() -> actions.remove(bookmark)));
@@ -67,7 +67,7 @@ public class BookmarkCompactGrid extends Grid<Bookmark> {
         return cell;
     }
 
-    private Div titleCell(Bookmark bookmark) {
+    private Div titleCell(BookmarkSummary bookmark) {
         Div stripe = new Div();
         stripe.addClassName("bookmark-compact-stripe");
         stripe.getStyle().set("background", "var(--color-cover-" + bookmark.coverIndex() + ")");

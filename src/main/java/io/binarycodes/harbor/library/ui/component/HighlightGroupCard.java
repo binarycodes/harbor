@@ -7,8 +7,8 @@ import com.vaadin.flow.component.html.NativeButton;
 import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
 
-import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.Highlight;
+import io.binarycodes.harbor.library.domain.HighlightGroup;
 
 /**
  * Everything the reader kept from one page, under a heading that takes them back
@@ -16,12 +16,12 @@ import io.binarycodes.harbor.library.domain.Highlight;
  */
 public class HighlightGroupCard extends Div {
 
-    public HighlightGroupCard(Bookmark bookmark, Consumer<Bookmark> onOpen) {
+    public HighlightGroupCard(HighlightGroup bookmark, Consumer<HighlightGroup> onOpen) {
         addClassName("highlight-group");
         add(heading(bookmark, onOpen), passages(bookmark));
     }
 
-    private NativeButton heading(Bookmark bookmark, Consumer<Bookmark> onOpen) {
+    private NativeButton heading(HighlightGroup bookmark, Consumer<HighlightGroup> onOpen) {
         Span title = new Span(bookmark.title());
         title.addClassName("highlight-group-title");
         int count = bookmark.highlights().size();
@@ -38,7 +38,7 @@ public class HighlightGroupCard extends Div {
         return heading;
     }
 
-    private Div passages(Bookmark bookmark) {
+    private Div passages(HighlightGroup bookmark) {
         Div passages = new Div();
         passages.addClassName("highlight-group-passages");
         bookmark.highlights().stream().map(Highlight::text).forEach(text -> {

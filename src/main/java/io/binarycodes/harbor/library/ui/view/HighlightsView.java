@@ -16,7 +16,7 @@ import com.vaadin.flow.shared.Registration;
 
 import io.binarycodes.harbor.base.ui.EmptyState;
 import io.binarycodes.harbor.base.ui.MainLayout;
-import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.domain.HighlightGroup;
 import io.binarycodes.harbor.library.ui.component.HighlightGroupCard;
 import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 
@@ -63,9 +63,9 @@ public class HighlightsView extends VerticalLayout implements HasDynamicTitle {
     }
 
     private void refresh() {
-        List<Bookmark> annotated = presenter.withHighlights();
+        List<HighlightGroup> annotated = presenter.withHighlights();
         groups.removeAll();
-        annotated.forEach(bookmark -> groups.add(new HighlightGroupCard(bookmark, this::open)));
+        annotated.forEach(group -> groups.add(new HighlightGroupCard(group, this::open)));
 
         boolean nothingToShow = annotated.isEmpty() && presenter.isLoaded();
         groups.setVisible(!annotated.isEmpty());
@@ -76,8 +76,8 @@ public class HighlightsView extends VerticalLayout implements HasDynamicTitle {
         }
     }
 
-    private void open(Bookmark bookmark) {
+    private void open(HighlightGroup group) {
         UI.getCurrent().navigate(ReaderView.class,
-                new RouteParameters(ReaderView.BOOKMARK_ID, bookmark.id()));
+                new RouteParameters(ReaderView.BOOKMARK_ID, group.id()));
     }
 }

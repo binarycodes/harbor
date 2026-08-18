@@ -8,7 +8,7 @@ import com.vaadin.flow.component.html.Paragraph;
 import com.vaadin.flow.component.html.Span;
 import com.vaadin.flow.component.icon.VaadinIcon;
 
-import io.binarycodes.harbor.library.domain.Bookmark;
+import io.binarycodes.harbor.library.domain.BookmarkSummary;
 
 /**
  * A bookmark as a picture card: cover tile, title, where it came from, the
@@ -16,7 +16,7 @@ import io.binarycodes.harbor.library.domain.Bookmark;
  */
 public class BookmarkCard extends Card {
 
-    public BookmarkCard(Bookmark bookmark, BookmarkActions actions) {
+    public BookmarkCard(BookmarkSummary bookmark, BookmarkActions actions) {
         getElement().getClassList().add("bookmark-card");
         addThemeVariants(CardVariant.OUTLINED, CardVariant.STRETCH_MEDIA, CardVariant.COVER_MEDIA);
         setAriaRole("listitem");
@@ -42,14 +42,14 @@ public class BookmarkCard extends Card {
      * flex row with a gap wide enough to separate the metadata from them, and as
      * separate children they would wear that same gap between themselves.
      */
-    private Div actions(Bookmark bookmark, BookmarkActions actions) {
+    private Div actions(BookmarkSummary bookmark, BookmarkActions actions) {
         Div group = new Div(new EditBookmarkButton(() -> actions.edit(bookmark)),
                 new DeleteBookmarkButton(() -> actions.remove(bookmark)));
         group.addClassName("bookmark-actions");
         return group;
     }
 
-    private Div cover(Bookmark bookmark, BookmarkActions actions) {
+    private Div cover(BookmarkSummary bookmark, BookmarkActions actions) {
         Badge type = new Badge(getTranslation(bookmark.type().translationKey()));
         type.addClassName("bookmark-card-type");
 
@@ -65,11 +65,11 @@ public class BookmarkCard extends Card {
      */
     private static class BookmarkMetadata extends Div {
 
-        BookmarkMetadata(Bookmark bookmark) {
+        BookmarkMetadata(BookmarkSummary bookmark) {
             addClassName("bookmark-metadata");
             add(item(VaadinIcon.CLOCK, getTranslation("bookmark.reading_time", bookmark.readingMinutes())));
             if (bookmark.hasHighlights()) {
-                Span highlights = item(VaadinIcon.QUOTE_RIGHT, String.valueOf(bookmark.highlights().size()));
+                Span highlights = item(VaadinIcon.QUOTE_RIGHT, String.valueOf(bookmark.highlightCount()));
                 highlights.addClassName("bookmark-metadata-highlights");
                 add(highlights);
             }
