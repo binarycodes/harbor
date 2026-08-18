@@ -13,6 +13,7 @@ set -euo pipefail
 cd "$(dirname "$0")"
 
 readonly BUNDLE_DIR="src/main/bundles"
+readonly DEV_COMPOSE_FILE="environment/dev/compose.yaml"
 readonly STYLES_CSS="src/main/resources/META-INF/resources/styles.css"
 
 # Resolve a JDK 21 from SDKMAN; fall back to whatever JAVA_HOME is already set.
@@ -80,6 +81,42 @@ task_styles() {
     touch_styles
 }
 
+# Docker renamed compose from a script to a subcommand and both are still in the
+# wild, so find whichever this machine has rather than guessing.
+compose() {
+    if docker compose version >/dev/null 2>&1; then
+        docker compose -f "${DEV_COMPOSE_FILE}" "$@"
+    elif command -v docker-compose >/dev/null 2>&1; then
+        docker-compose -f "${DEV_COMPOSE_FILE}" "$@"
+    else
+        echo "No Compose found. Install the Docker Compose plugin (docker compose)" >&2
+        echo "or the standalone docker-compose, then retry." >&2
+        exit 1
+    fi
+}
+
+# The development database. Nothing runs without it — the library lives there.
+task_db() {
+    local action="${1:-up}"
+    case "${action}" in
+        up)    compose up -d && echo "Postgres is up on 5432 (harbor/harbor)." ;;
+        down)  compose down && echo "Postgres stopped; its data is kept." ;;
+        logs)  compose logs -f ;;
+        reset) compose down -v && echo "Postgres stopped and its data thrown away." ;;
+        *)
+            echo "Unknown db action: ${action} (expected up, down, logs or reset)" >&2
+            exit 1
+            ;;
+    esac
+}
+
+# Fetch dependencies. Every other task builds offline, which is what makes a
+# newly added dependency fail with a resolution error rather than downloading it.
+task_deps() {
+    resolve_java_home
+    run_mvn --batch-mode --no-transfer-progress dependency:resolve
+}
+
 task_test() {
     resolve_java_home
     # JaCoCo enforces an 80% line-coverage gate on the */service packages.
@@ -130,6 +167,8 @@ usage() {
 Usage: ./run.sh <task>
 
 Tasks:
+  db [act]   Development Postgres: up (default), down, logs, reset
+  deps       Download newly added dependencies (every other task builds offline)
   compile    Compile sources (triggers a devtools hot-restart of a running app)
   bundle     Clear cached frontend bundles + touch styles.css + recompile
              (use after changing a @CssImport themeFor / @JsModule)
@@ -150,6 +189,8 @@ main() {
         compile) task_compile ;;
         bundle)  task_bundle ;;
         styles)  task_styles ;;
+        db)      task_db "${2:-up}" ;;
+        deps)    task_deps ;;
         test)    task_test ;;
         verify)  task_verify ;;
         run)     task_run ;;

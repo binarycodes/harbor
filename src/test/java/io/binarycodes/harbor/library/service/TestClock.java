@@ -11,7 +11,9 @@ import java.time.ZoneId;
  */
 class TestClock extends Clock {
 
-    private Instant instant = Instant.parse("2026-08-17T09:00:00Z");
+    private static final Instant START = Instant.parse("2026-08-17T09:00:00Z");
+
+    private Instant instant = START;
 
     @Override
     public ZoneId getZone() {
@@ -30,5 +32,12 @@ class TestClock extends Clock {
 
     void advance(Duration amount) {
         instant = instant.plus(amount);
+    }
+
+    /**
+     * The clock is a bean, so it is the same instance for every test in a class.
+     */
+    void reset() {
+        instant = START;
     }
 }

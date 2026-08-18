@@ -10,10 +10,11 @@ Status is one of:
 - **Open — blocker**: must be resolved before the related change ships.
 - **Open**: real, scheduled, not blocking.
 - **Decided**: a trade-off was chosen; the file records why the alternative lost.
+- **Done**: resolved; the file records what was built and what it did not cover.
 
 | # | Title | Status |
 |---|---|---|
-| [001](001-localstorage-migration.md) | Existing localStorage libraries are orphaned by the move to PostgreSQL | Open — blocker |
+| [001](001-localstorage-migration.md) | Existing localStorage libraries are orphaned by the move to PostgreSQL | Done |
 | [002](002-lazy-loaded-images.md) | Lazy-loaded images defeat the PDF archive | Open — blocker |
 | [003](003-search-index-tradeoff.md) | Trigram vs. tsvector for article-body search | Decided |
 | [004](004-optimistic-lock-handling.md) | Optimistic-lock failures reach the UI unhandled | Open |

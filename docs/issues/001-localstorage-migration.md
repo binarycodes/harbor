@@ -1,6 +1,6 @@
 # 001 — Existing localStorage libraries are orphaned by the move to PostgreSQL
 
-**Status:** Open — blocker for the PostgreSQL commit.
+**Status:** Done — shipped with the PostgreSQL commit as `LegacyLibraryImport`.
 
 ## Context
 
@@ -42,9 +42,10 @@ shipping a release whose only purpose is to let people leave it.
 **A release note telling people to export manually.** Not a real option for an
 image people run with `:latest` and auto-update.
 
-## Recommendation
+## What was built
 
-The one-time import. Points worth getting right when it is built:
+`LegacyLibraryImport`, run once per session from `LibraryPresenter.load()`. The
+points it had to get right, and does:
 
 - Run it once per browser, and clear the key only after the write has succeeded —
   a failed import that has already deleted the source is the original bug with
@@ -57,4 +58,10 @@ The one-time import. Points worth getting right when it is built:
   its own. The import must let the database assign ids rather than carrying the
   old ones across.
 - Say something in the UI when an import actually happens. A silent success is
-  indistinguishable from the bug it fixes.
+  indistinguishable from the bug it fixes — `MainLayout` shows a notification
+  naming the count.
+
+One thing deliberately left: nothing verifies the import against a browser that
+genuinely holds an old payload, only against a stubbed storage carrying the same
+JSON. That is the shape the old version wrote, but it is a reconstruction rather
+than a real upgrade.

@@ -13,6 +13,7 @@ import com.vaadin.flow.component.applayout.DrawerToggle;
 import com.vaadin.flow.component.button.Button;
 import com.vaadin.flow.component.button.ButtonVariant;
 import com.vaadin.flow.component.icon.VaadinIcon;
+import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.RouteParameters;
 import com.vaadin.flow.shared.Registration;
@@ -41,6 +42,8 @@ public class MainLayout extends AppLayout {
     private final StorageFooter storageFooter;
     private final SaveLinkDialog saveLinkDialog;
     private final List<Registration> registrations = new ArrayList<>();
+
+    private boolean importReported;
 
     public MainLayout(LibraryPresenter presenter, LibraryFilter libraryFilter) {
         this.presenter = presenter;
@@ -100,6 +103,22 @@ public class MainLayout extends AppLayout {
     private void onLibraryChanged() {
         libraryFilter.retainTags(knownTags());
         refreshSidebar();
+        reportImportedLibrary();
+    }
+
+    /**
+     * A library carried over from this browser's own storage is worth saying out
+     * loud once. Staying quiet about it looks exactly like the data loss the
+     * import exists to prevent.
+     */
+    private void reportImportedLibrary() {
+        int imported = presenter.importedFromBrowser();
+        if (imported == 0 || importReported) {
+            return;
+        }
+        importReported = true;
+        Notification.show(getTranslation(
+                imported == 1 ? "library.imported.one" : "library.imported.many", imported));
     }
 
     private void refreshSidebar() {

@@ -1,0 +1,30 @@
+# The database Harbor talks to while you are developing it. The credentials are
+# harbor/harbor and the port is published on localhost, which is only acceptable
+# because this file is for a laptop: nothing here belongs on a machine anyone
+# else can reach. A deployment sets HARBOR_DB_URL, HARBOR_DB_USER and
+# HARBOR_DB_PASSWORD instead, and the application has no defaults worth trusting
+# beyond the ones that match this file.
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: harbor-dev-postgres
+    environment:
+      POSTGRES_DB: harbor
+      POSTGRES_USER: harbor
+      POSTGRES_PASSWORD: harbor
+    ports:
+      - "5432:5432"
+    volumes:
+      - harbor-dev-data:/var/lib/postgresql/data
+    # The app starts fast enough to beat Postgres to it, and Flyway's first
+    # migration is what pays for that with a confusing connection error.
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U harbor -d harbor"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  harbor-dev-data:

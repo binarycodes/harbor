@@ -6,8 +6,9 @@ import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.ColorSchemePreference;
 
 /**
- * The whole persisted payload: the bookmarks and the light/dark choice, written
- * and read as one document.
+ * What older versions of Harbor kept in the browser: the whole library and the
+ * light/dark choice, as one document. Nothing writes this shape any more — it
+ * exists so {@link LegacyLibraryDecoder} can read what is already out there.
  */
 public record StoredLibrary(List<Bookmark> bookmarks, ColorSchemePreference colorScheme) {
 

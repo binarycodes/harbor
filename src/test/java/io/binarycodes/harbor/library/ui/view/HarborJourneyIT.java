@@ -3,8 +3,10 @@ package io.binarycodes.harbor.library.ui.view;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.web.server.LocalServerPort;
 import org.springframework.test.context.ContextConfiguration;
@@ -16,7 +18,11 @@ import com.microsoft.playwright.options.AriaRole;
 import org.vaadin.addons.dramafinder.element.TextAreaElement;
 import org.vaadin.addons.dramafinder.element.TextFieldElement;
 
+import io.binarycodes.harbor.HarborDatabase;
 import io.binarycodes.harbor.StubMetadataConfiguration;
+import io.binarycodes.harbor.library.domain.LibraryQuery;
+import io.binarycodes.harbor.library.domain.LibraryScope;
+import io.binarycodes.harbor.library.service.BookmarkService;
 
 /**
  * The journey a reader actually takes through Harbor, in a real browser: arrive at
@@ -28,9 +34,23 @@ import io.binarycodes.harbor.StubMetadataConfiguration;
  * these tests are here to prove.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@ContextConfiguration(classes = StubMetadataConfiguration.class)
+@ContextConfiguration(classes = { StubMetadataConfiguration.class, HarborDatabase.class })
 @DisplayName("A reader using Harbor")
 class HarborJourneyIT extends AbstractBasePlaywrightIT {
+
+    @Autowired
+    private BookmarkService bookmarkService;
+
+    /**
+     * The library used to be per-browser, so a fresh browser was a fresh library.
+     * It is one database now, and these journeys share it — each has to start from
+     * the empty library a first visit sees.
+     */
+    @BeforeEach
+    void startFromAnEmptyLibrary() {
+        bookmarkService.find(LibraryQuery.of(LibraryScope.ALL))
+                .forEach(bookmark -> bookmarkService.remove(bookmark.id()));
+    }
 
     @LocalServerPort
     private int port;

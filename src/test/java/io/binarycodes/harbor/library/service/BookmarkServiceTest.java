@@ -9,16 +9,25 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Set;
 
+import java.time.Clock;
+
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.boot.test.context.TestConfiguration;
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Import;
+import org.springframework.context.annotation.Primary;
+
+import io.binarycodes.harbor.HarborDatabase;
 
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.BookmarkType;
-import io.binarycodes.harbor.library.domain.ColorSchemePreference;
 import io.binarycodes.harbor.library.domain.Highlight;
 import io.binarycodes.harbor.library.domain.LibraryQuery;
 import io.binarycodes.harbor.library.domain.LibraryScope;
@@ -26,25 +35,41 @@ import io.binarycodes.harbor.library.domain.LinkDraft;
 import io.binarycodes.harbor.library.domain.SortMode;
 import io.binarycodes.harbor.library.domain.TagCount;
 
+@SpringBootTest
+@Import({ HarborDatabase.class, BookmarkServiceIT.FixedClock.class })
 @DisplayName("The library")
-class BookmarkServiceTest {
+class BookmarkServiceIT {
 
-    /**
-     * What {@link BookmarkService#load(Runnable)} calls back. Who redraws when the
-     * library arrives is the presenter's business, and none of these tests have one.
-     */
-    private static final Runnable NOTHING = () -> {
-    };
-
-    private InMemoryLibraryStorage storage;
-    private TestClock clock;
+    @Autowired
     private BookmarkService service;
 
+    @Autowired
+    private BookmarkRepository repository;
+
+    @Autowired
+    private Clock injectedClock;
+
+    private TestClock clock;
+
     @BeforeEach
-    void createService() {
-        storage = new InMemoryLibraryStorage();
-        clock = new TestClock();
-        service = new BookmarkService(new BookmarkStore(storage), clock);
+    void startFromAnEmptyLibrary() {
+        repository.deleteAll();
+        clock = (TestClock) injectedClock;
+        clock.reset();
+    }
+
+    /**
+     * Saved timestamps have to be predictable and distinct, which the real clock
+     * cannot promise for two writes in the same millisecond.
+     */
+    @TestConfiguration
+    static class FixedClock {
+
+        @Bean
+        @Primary
+        Clock testClock() {
+            return new TestClock();
+        }
     }
 
     @Nested
@@ -54,9 +79,6 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("starts empty rather than with sample data")
         void startsEmpty() {
-            service.load(NOTHING);
-
-            assertTrue(service.isLoaded());
             assertEquals(0, service.count());
             assertEquals(List.of(), service.find(LibraryQuery.of(LibraryScope.ALL)));
         }
@@ -64,20 +86,11 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("reports nothing to read later and no highlights")
         void reportsEmptyCounts() {
-            service.load(NOTHING);
-
             assertEquals(0, service.countReadLater());
             assertEquals(0, service.countHighlights());
             assertEquals(List.of(), service.tagCounts());
         }
 
-        @Test
-        @DisplayName("leaves the color scheme to the operating system")
-        void defaultsToSystemColorScheme() {
-            service.load(NOTHING);
-
-            assertEquals(ColorSchemePreference.SYSTEM, service.getColorScheme());
-        }
     }
 
     @Nested
@@ -85,24 +98,19 @@ class BookmarkServiceTest {
     class Saving {
 
         @Test
-        @DisplayName("puts the newest bookmark first and writes it to storage")
+        @DisplayName("puts the newest bookmark first")
         void addsNewestFirst() {
-            service.load(NOTHING);
-
             save("https://example.com/one", "One");
             clock.advance(Duration.ofMinutes(5));
             save("https://example.com/two", "Two");
 
             List<Bookmark> found = service.find(LibraryQuery.of(LibraryScope.ALL));
             assertEquals(List.of("Two", "One"), found.stream().map(Bookmark::title).toList());
-            assertTrue(storage.payload().contains("https://example.com/two"));
         }
 
         @Test
         @DisplayName("stamps the bookmark with the time it was saved")
         void stampsSavedAt() {
-            service.load(NOTHING);
-
             Bookmark saved = save("https://example.com/one", "One");
 
             assertEquals(clock.millis(), saved.savedAt());
@@ -116,8 +124,6 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("gives every bookmark its own identity")
         void assignsDistinctIds() {
-            service.load(NOTHING);
-
             Bookmark first = save("https://example.com/one", "One");
             Bookmark second = save("https://example.com/two", "Two");
 
@@ -127,7 +133,6 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("never records a reading time below a minute")
         void keepsReadingTimePositive() {
-            service.load(NOTHING);
             LinkDraft draft = draft("https://example.com/short", "Short");
             draft.setReadingMinutes(0);
 
@@ -141,7 +146,6 @@ class BookmarkServiceTest {
 
         @BeforeEach
         void fillLibrary() {
-            service.load(NOTHING);
             LinkDraft flexbox = draft("https://joshwcomeau.com/flexbox", "An Interactive Guide to Flexbox");
             flexbox.setTags(List.of("Web", "Design"));
             service.add(flexbox);
@@ -247,7 +251,6 @@ class BookmarkServiceTest {
 
         @BeforeEach
         void saveOne() {
-            service.load(NOTHING);
             id = save("https://example.com/one", "One").id();
         }
 
@@ -325,13 +328,12 @@ class BookmarkServiceTest {
         }
 
         @Test
-        @DisplayName("removing an unknown bookmark writes nothing")
+        @DisplayName("removing an unknown bookmark changes nothing")
         void ignoresUnknownRemoval() {
-            int writesBefore = storage.writeCount();
-
             service.remove("no-such-id");
+            service.remove("not-even-a-uuid");
 
-            assertEquals(writesBefore, storage.writeCount());
+            assertEquals(1, service.count());
         }
 
         @Test
@@ -346,51 +348,65 @@ class BookmarkServiceTest {
     }
 
     @Nested
-    @DisplayName("across visits")
-    class Persistence {
+    @DisplayName("when a library saved before the database is taken in")
+    class Importing {
 
         @Test
-        @DisplayName("restores what the previous visit saved")
-        void restoresStoredLibrary() {
-            service.load(NOTHING);
-            save("https://example.com/one", "One");
-            service.setColorScheme(ColorSchemePreference.DARK);
+        @DisplayName("keeps what the reader had written on it")
+        void importsAnnotations() {
+            Bookmark saved = new Bookmark("ignored", "https://example.com/one", "One", "example.com",
+                    "example.com", "Saved from example.com", List.of("Reading"), BookmarkType.ARTICLE,
+                    true, 1_600_000_000_000L, 7, "## Body", "remember this",
+                    List.of(new Highlight("a passage worth keeping")));
 
-            BookmarkService reopened = new BookmarkService(new BookmarkStore(storage), clock);
-            reopened.load(NOTHING);
+            assertEquals(1, service.importAll(List.of(saved)));
 
-            assertEquals(1, reopened.count());
-            assertEquals("One", reopened.find(LibraryQuery.of(LibraryScope.ALL)).getFirst().title());
-            assertEquals(ColorSchemePreference.DARK, reopened.getColorScheme());
-        }
-
-        @Test
-        @DisplayName("keeps notes and highlights")
-        void restoresAnnotations() {
-            service.load(NOTHING);
-            String id = save("https://example.com/one", "One").id();
-            service.updateNotes(id, "remember this");
-            service.addHighlight(id, "a passage worth keeping");
-
-            BookmarkService reopened = new BookmarkService(new BookmarkStore(storage), clock);
-            reopened.load(NOTHING);
-
-            Bookmark restored = reopened.findById(id).orElseThrow();
+            Bookmark restored = service.find(LibraryQuery.of(LibraryScope.ALL)).getFirst();
+            assertEquals("One", restored.title());
             assertEquals("remember this", restored.notes());
+            assertTrue(restored.readLater());
+            assertEquals(1_600_000_000_000L, restored.savedAt());
             assertEquals(List.of("a passage worth keeping"),
                     restored.highlights().stream().map(Highlight::text).toList());
         }
 
+        /**
+         * The id in the old payload was the browser's to invent. The database
+         * assigns its own, and the reader reaches a bookmark through the library
+         * rather than by remembering one.
+         */
         @Test
-        @DisplayName("starts over rather than failing on an unreadable payload")
-        void toleratesUnreadableStorage() {
-            BookmarkService withRubbish = new BookmarkService(
-                    new BookmarkStore(new InMemoryLibraryStorage("{ this is not our json")), clock);
+        @DisplayName("gives the bookmark the database's own identity")
+        void assignsAFreshId() {
+            Bookmark saved = imported("https://example.com/one", "One");
 
-            withRubbish.load(NOTHING);
+            service.importAll(List.of(saved));
 
-            assertTrue(withRubbish.isLoaded());
-            assertEquals(0, withRubbish.count());
+            assertFalse(service.find(LibraryQuery.of(LibraryScope.ALL)).getFirst().id().equals("ignored"));
+        }
+
+        /**
+         * Skipped rather than refused: an import that stops halfway because one link
+         * had been saved again is worse than one that steps over it.
+         */
+        @Test
+        @DisplayName("steps over anything already saved")
+        void skipsWhatIsAlreadyThere() {
+            save("https://example.com/one", "One");
+
+            int taken = service.importAll(List.of(
+                    imported("https://example.com/one", "One again"),
+                    imported("https://example.com/two", "Two")));
+
+            assertEquals(1, taken);
+            assertEquals(2, service.count());
+            assertEquals("One", service.findByUrl("https://example.com/one").orElseThrow().title());
+        }
+
+        private Bookmark imported(String url, String title) {
+            return new Bookmark("ignored", url, title, "example.com", "example.com",
+                    "Saved from example.com", List.of("Reading"), BookmarkType.ARTICLE, false,
+                    1_600_000_000_000L, 7, "## Body", "", List.of());
         }
     }
 
@@ -405,7 +421,6 @@ class BookmarkServiceTest {
 
         @BeforeEach
         void saveThreeLengths() {
-            service.load(NOTHING);
             saveMinutes("https://example.com/medium", "Medium", 9);
             saveMinutes("https://example.com/long", "Long", 30);
             saveMinutes("https://example.com/short", "Short", 2);

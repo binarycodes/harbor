@@ -28,7 +28,7 @@ Project-wide rules. Once a pattern is established here, follow it without prompt
 
 ## 4. Java
 
-- Records for immutable value types; mutable Lombok beans for `Binder` inputs, with null-defaulted fields.
+- Records for immutable value types; mutable Lombok beans where a framework demands one — `Binder` inputs and JPA entities — with null-defaulted fields.
 - Lombok `@Getter @Setter @NoArgsConstructor @AllArgsConstructor`, declared `<optional>true</optional>`.
 - Jackson 3 — import from `tools.jackson.*`; build mappers via `JsonMapper.builder().build()`.
 - Don't fabricate fallback defaults in form-read paths; surface empties through binder validation.
@@ -80,7 +80,12 @@ Project-wide rules. Once a pattern is established here, follow it without prompt
 
 ## 10. Persistence
 
-- `@VaadinSessionScope` beans for per-session state, mirrored to browser localStorage via `WebStorage`. Defaults stay read-only on the classpath; persisted state is separate.
+- PostgreSQL through Spring Data JPA. Flyway owns the schema (`db/migration/V*.sql`) and `spring.jpa.hibernate.ddl-auto=validate` fails startup on drift rather than rewriting it.
+- **Entities, projections and repositories are package-private and never leave the service package.** The service translates them to records before anything above sees them — which keeps the domain immutable, and keeps every entity inside the transaction that loaded it, so a stateful UI framework never meets a detached one. A view that tries to import an entity does not compile; that is the point.
+- Mutable JPA entities take the same Lombok treatment as `Binder` beans (see §4).
+- Every table carries `owner_id` and every query is scoped by it, so adding accounts is a change to `LibraryOwner.current()` rather than a migration.
+- `byte[]`, never `@Lob`: on PostgreSQL, Hibernate maps `@Lob byte[]` to an `oid` large object rather than `bytea`.
+- Browser storage (`BrowserStorage`) is only for what describes this browser rather than the library — the light/dark choice, and reading what an older version left behind.
 
 ## 10a. Security headers
 
@@ -90,10 +95,10 @@ Project-wide rules. Once a pattern is established here, follow it without prompt
 
 ## 11. Build & CI
 
-- Run build / test / frontend tasks through `./run.sh <task>` (`compile`, `bundle`, `styles`, `test`, `verify`, `run`, `package`, `clean`), which pins JDK 21. Never invoke `mvn` directly. After a `@CssImport(themeFor=…)` / `@JsModule` change run `./run.sh bundle`; after editing an `@import`-ed CSS partial run `./run.sh styles`.
+- Run build / test / frontend tasks through `./run.sh <task>` (`db`, `deps`, `compile`, `bundle`, `styles`, `test`, `verify`, `run`, `package`, `clean`), which pins JDK 21. Never invoke `mvn` directly. Every task but `deps` builds offline, so a newly added dependency needs `./run.sh deps` once. After a `@CssImport(themeFor=…)` / `@JsModule` change run `./run.sh bundle`; after editing an `@import`-ed CSS partial run `./run.sh styles`.
 - `./run.sh verify` clears the cached bundles before building. A `dev.bundle` left by `./run.sh run` makes the frontend build report "a production mode bundle build is not needed", and the integration tests then open a page whose client bundle fails to boot.
 - CI runs `mvn verify` on push (Temurin JDK 21).
-- Tests live alongside the package they cover. Unit tests for the service layer, browserless tests for views, `*IT` Playwright tests for whole journeys. Both of the latter stub `MetadataResolver` so nothing reaches the network.
+- Tests live alongside the package they cover. Unit tests for the service layer, browserless tests for views, `*IT` Playwright tests for whole journeys. Both of the latter stub `MetadataResolver` so nothing reaches the network. Anything touching the library needs a real PostgreSQL — import `HarborDatabase` and empty the table in `@BeforeEach`, since one database now serves the whole suite.
 - JaCoCo `<includes>` for a `PACKAGE` rule take dot notation (`io.binarycodes.harbor.*.service`). Slash notation matches nothing and the gate silently passes.
 - Session-scoped beans cannot be `@Autowired` into a browserless test's fields — the Vaadin session does not exist that early. Take the `ApplicationContext` and resolve them in `@BeforeEach`.
 - Conventional Commits: `<type>[(scope)][!]: <description>`, type one of `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`. Subject ≤100 chars, single line, no body, no `Co-Authored-By`. A `commit-msg` hook in `.githooks/` enforces this; enable per clone with `git config core.hooksPath .githooks`.

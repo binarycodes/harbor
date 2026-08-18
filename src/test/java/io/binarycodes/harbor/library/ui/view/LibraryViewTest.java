@@ -21,6 +21,7 @@ import com.vaadin.flow.component.confirmdialog.ConfirmDialog;
 import com.vaadin.flow.component.textfield.TextField;
 
 import io.binarycodes.harbor.BrowserlessStorageConfiguration;
+import io.binarycodes.harbor.HarborDatabase;
 import io.binarycodes.harbor.StubMetadataConfiguration;
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.BookmarkType;
@@ -38,7 +39,8 @@ import io.binarycodes.harbor.library.ui.presenter.LibraryFilter;
 import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 
 @SpringBootTest
-@ContextConfiguration(classes = { StubMetadataConfiguration.class, BrowserlessStorageConfiguration.class })
+@ContextConfiguration(classes = { StubMetadataConfiguration.class, BrowserlessStorageConfiguration.class,
+        HarborDatabase.class })
 @DisplayName("The library screen")
 class LibraryViewTest extends SpringBrowserlessTest {
 
@@ -58,8 +60,8 @@ class LibraryViewTest extends SpringBrowserlessTest {
         presenter = applicationContext.getBean(LibraryPresenter.class);
         libraryFilter = applicationContext.getBean(LibraryFilter.class);
         presenter.load();
-        // The stub storage is a singleton, so what one test saved is still there for
-        // the next one. Each test starts from the empty library a first visit sees.
+        // One database for the whole suite, so what one test saved is still there
+        // for the next. Each starts from the empty library a first visit sees.
         presenter.find(LibraryQuery.of(LibraryScope.ALL))
                 .forEach(bookmark -> presenter.remove(bookmark.id()));
         libraryFilter.clearTags();

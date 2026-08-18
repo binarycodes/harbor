@@ -13,6 +13,7 @@ import com.vaadin.flow.component.UI;
 import com.vaadin.flow.shared.Registration;
 import com.vaadin.flow.spring.annotation.VaadinSessionScope;
 
+import io.binarycodes.harbor.base.ui.BrowserStorage;
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.ColorSchemePreference;
 import io.binarycodes.harbor.library.domain.LibraryQuery;
@@ -39,13 +40,30 @@ import io.binarycodes.harbor.library.service.MetadataResolver;
 @VaadinSessionScope
 public class LibraryPresenter {
 
+    /**
+     * Where this browser's light/dark choice is kept. It stays in the browser
+     * rather than the database on purpose: it describes a screen, not a library,
+     * and one visitor turning the lights off should not do it for everyone.
+     */
+    private static final String COLOR_SCHEME_KEY = "harbor.scheme.v1";
+
     private final BookmarkService bookmarkService;
     private final MetadataResolver metadataResolver;
+    private final BrowserStorage browserStorage;
+    private final LegacyLibraryImport legacyLibraryImport;
     private final List<Runnable> changeListeners = new ArrayList<>();
 
-    LibraryPresenter(BookmarkService bookmarkService, MetadataResolver metadataResolver) {
+    private ColorSchemePreference colorScheme = ColorSchemePreference.SYSTEM;
+    private boolean loaded;
+    private boolean loadRequested;
+    private int importedFromBrowser;
+
+    LibraryPresenter(BookmarkService bookmarkService, MetadataResolver metadataResolver,
+            BrowserStorage browserStorage, LegacyLibraryImport legacyLibraryImport) {
         this.bookmarkService = bookmarkService;
         this.metadataResolver = metadataResolver;
+        this.browserStorage = browserStorage;
+        this.legacyLibraryImport = legacyLibraryImport;
     }
 
     public Registration addChangeListener(Runnable listener) {
@@ -54,15 +72,42 @@ public class LibraryPresenter {
     }
 
     /**
-     * Asks for the stored library, once per session. The browser answers later, so
-     * screens register a listener first and are told when the contents are known.
+     * Settles what only the browser can answer, once per session: which colour
+     * scheme this one prefers, and whether it is still holding a library from
+     * before there was a database. Screens register a listener first and are told
+     * when each answer arrives.
+     *
+     * <p>The library itself needs no loading — it is a query away — but an empty
+     * screen must not be shown as "nothing saved" until the import has been
+     * settled, which is what {@link #isLoaded()} reports.
      */
     public void load() {
-        bookmarkService.load(this::notifyListeners);
+        if (loadRequested) {
+            return;
+        }
+        loadRequested = true;
+        browserStorage.read(COLOR_SCHEME_KEY, stored -> {
+            colorScheme = colorSchemeFrom(stored);
+            notifyListeners();
+        });
+        legacyLibraryImport.run(imported -> {
+            importedFromBrowser = imported;
+            loaded = true;
+            notifyListeners();
+        });
     }
 
     public boolean isLoaded() {
-        return bookmarkService.isLoaded();
+        return loaded;
+    }
+
+    /**
+     * How many bookmarks were taken in from this browser's old storage. Worth
+     * saying out loud: an import that succeeds silently looks exactly like the
+     * data loss it prevents.
+     */
+    public int importedFromBrowser() {
+        return importedFromBrowser;
     }
 
     public List<Bookmark> find(LibraryQuery query) {
@@ -94,12 +139,24 @@ public class LibraryPresenter {
     }
 
     public ColorSchemePreference getColorScheme() {
-        return bookmarkService.getColorScheme();
+        return colorScheme;
     }
 
     public void setColorScheme(ColorSchemePreference preference) {
-        bookmarkService.setColorScheme(preference);
+        colorScheme = preference;
+        browserStorage.write(COLOR_SCHEME_KEY, preference.name());
         notifyListeners();
+    }
+
+    private static ColorSchemePreference colorSchemeFrom(String stored) {
+        if (stored == null) {
+            return ColorSchemePreference.SYSTEM;
+        }
+        try {
+            return ColorSchemePreference.valueOf(stored);
+        } catch (IllegalArgumentException notAPreference) {
+            return ColorSchemePreference.SYSTEM;
+        }
     }
 
     public Bookmark add(LinkDraft draft) {

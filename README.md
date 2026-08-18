@@ -25,10 +25,18 @@ Search covers everything at once — titles, descriptions, sites, tags, your not
 the article body, and your highlights. Sort by recency, title, or reading time.
 Tags narrow together, so picking two shows only what carries both.
 
-**Your data stays in your browser.** The library is saved to the browser's
-`localStorage` under `harbor.library.v1` — there's no database, no accounts, and
-nothing about what you read is stored on the server. The server's only job is to
-fetch the pages you ask it to.
+**Your library lives in a PostgreSQL database you run.** Bookmarks, notes and
+highlights are all kept there — self-hosted on your own machine, but no longer
+inside your browser. Earlier versions kept everything in `localStorage`; if you
+are upgrading, Harbor takes that library in the first time you open it and tells
+you how many bookmarks it brought over. The only thing still kept in the browser
+is whether you prefer light or dark.
+
+**Harbor has no accounts yet**, and that now matters more than it did. When the
+library was in your browser, someone else reaching your instance saw an empty
+app. With a shared database they see everything you have saved, and can edit and
+delete it. Run it on a trusted network, or behind a reverse proxy that
+authenticates, until accounts arrive.
 
 Follows your system light/dark setting, or pin either one.
 
@@ -40,16 +48,15 @@ A prebuilt, multi-architecture image (`linux/amd64` + `linux/arm64`) is publishe
 to Docker Hub at **[`binarycodes/harbor`](https://hub.docker.com/r/binarycodes/harbor)**.
 No build and no configuration required.
 
-```bash
-docker run --rm -p 8080:8080 binarycodes/harbor:latest
-```
-
-Then open <http://localhost:8080>.
+Harbor needs a PostgreSQL to talk to, so the compose stack below is the shortest
+way in. Then open <http://localhost:8080>.
 
 - Use `binarycodes/harbor:latest` for the newest build, or pin a version tag —
   images are also tagged with the project's Maven version.
 - The app listens on port **8080**. Override it with the `PORT` environment
   variable: `-e PORT=9090 -p 9090:9090`.
+- The database is configured with `HARBOR_DB_URL`, `HARBOR_DB_USER` and
+  `HARBOR_DB_PASSWORD`. Harbor creates and migrates its own schema on startup.
 
 ### docker compose
 
@@ -59,11 +66,37 @@ services:
     image: binarycodes/harbor:latest
     ports:
       - "8080:8080"
+    environment:
+      - HARBOR_DB_URL=jdbc:postgresql://postgres:5432/harbor
+      - HARBOR_DB_USER=harbor
+      - HARBOR_DB_PASSWORD=change-me
+      # Only if you need Harbor to reach private addresses; see below.
+      # - HARBOR_ALLOWED_RANGES=192.168.1.50/32
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
-    # Only if you need Harbor to reach private addresses; see below.
-    # environment:
-    #   - HARBOR_ALLOWED_RANGES=192.168.1.50/32
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      - POSTGRES_DB=harbor
+      - POSTGRES_USER=harbor
+      - POSTGRES_PASSWORD=change-me
+    volumes:
+      - harbor-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U harbor -d harbor"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  harbor-data:
 ```
+
+`harbor-data` is your library. Back it up.
 
 ### Podman Quadlet (systemd)
 
@@ -149,16 +182,24 @@ reaches; it does not authenticate anyone.
 
 ## Develop locally
 
-Requirements: **JDK 21**. Every task goes through `./run.sh`, which pins JDK 21
+Requirements: **JDK 21**, and a container runtime — the development database runs
+in one, and the tests start their own throwaway PostgreSQL. Every task goes
+through `./run.sh`, which pins JDK 21
 (from SDKMAN if present, otherwise your `JAVA_HOME`) — a bare `mvn` under a newer
 JDK makes Lombok fail in confusing ways. Run `./run.sh` with no arguments to list
 the tasks.
 
 ```bash
+./run.sh db up
+```
+
+```bash
 ./run.sh run
 ```
 
-Open <http://localhost:8080>. The frontend is rebuilt on the fly in development
+Open <http://localhost:8080>. The database defaults match
+`environment/dev/compose.yaml`, so nothing needs configuring. `./run.sh db reset`
+throws the data away and gives you a first-run empty library. The frontend is rebuilt on the fly in development
 mode; the first start downloads npm dependencies and takes a little longer.
 
 Run the tests:

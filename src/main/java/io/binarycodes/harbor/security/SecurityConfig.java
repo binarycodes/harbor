@@ -15,10 +15,13 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 import com.vaadin.flow.spring.security.VaadinSecurityConfigurer;
 
 /**
- * Harbor has no accounts: every bookmark is stored in the visitor's own browser,
- * so there is nothing to authenticate against and no per-user data on the
- * server. Spring Security is still configured explicitly, because leaving it on
- * the classpath unconfigured would put the whole application behind the default
+ * Harbor has no accounts yet. It used to have nothing to authenticate against
+ * either — every bookmark lived in the visitor's own browser — but the library is
+ * on the server now, and one visitor's is every visitor's until accounts arrive.
+ * See {@code docs/issues/006}.
+ *
+ * <p>Spring Security is still configured explicitly, because leaving it on the
+ * classpath unconfigured would put the whole application behind the default
  * generated login form.
  */
 @Configuration
