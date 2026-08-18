@@ -153,7 +153,7 @@ task_verify() {
 # Full production build.
 task_package() {
     resolve_java_home
-    run_mvn clean package
+    run_mvn clean package "$@"
 }
 
 task_clean() {
@@ -195,7 +195,7 @@ main() {
         verify)  task_verify "${@:2}" ;;
         run)     task_run ;;
         preview) task_preview ;;
-        package) task_package ;;
+        package) task_package "${@:2}" ;;
         clean)   task_clean ;;
         help|-h|--help) usage ;;
         *)

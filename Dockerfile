@@ -7,8 +7,13 @@ ARG GIT_SHA
 RUN test -n "$GIT_SHA" || (echo "GIT_SHA build arg is required (the deployed commit SHA)" && false)
 WORKDIR /app
 COPY . .
+# Tests are not run here. They need a PostgreSQL, which Testcontainers starts by
+# talking to a Docker daemon — and there is no daemon inside a docker build. CI
+# runs the whole suite before it builds this image, so the jar going in has
+# already been verified; building the image yourself verifies nothing, so run
+# ./run.sh verify alongside it.
 RUN mvn --batch-mode --no-transfer-progress \
-        -Dbuild.commit=${GIT_SHA} clean package
+        -Dbuild.commit=${GIT_SHA} -DskipTests clean package
 
 
 FROM eclipse-temurin:${JAVA_VERSION}-jre-alpine

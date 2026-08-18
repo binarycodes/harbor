@@ -217,6 +217,10 @@ Two more tasks worth knowing: after changing a `@CssImport(themeFor=…)` or
 
 ## Build your own image
 
+The image build does not run the tests — they need a database, and a
+`docker build` has no way to start one. `./run.sh verify` is what checks the code;
+the image build only packages it.
+
 Production build (fat jar in `target/`):
 
 ```bash
