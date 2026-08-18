@@ -207,6 +207,7 @@ main() {
         bundle)  task_bundle ;;
         styles)  task_styles ;;
         db)      task_db "${2:-up}" ;;
+        browser) task_browser "${2:-up}" ;;
         deps)    task_deps ;;
         test)    task_test "${@:2}" ;;
         verify)  task_verify "${@:2}" ;;
