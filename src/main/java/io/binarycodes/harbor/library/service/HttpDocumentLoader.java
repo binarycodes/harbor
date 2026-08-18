@@ -9,15 +9,9 @@ import java.util.List;
 import java.util.Set;
 
 import org.apache.hc.client5.http.classic.methods.HttpGet;
-import org.apache.hc.client5.http.config.ConnectionConfig;
-import org.apache.hc.client5.http.config.RequestConfig;
-import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
-import org.apache.hc.client5.http.impl.classic.HttpClients;
-import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManagerBuilder;
 import org.apache.hc.client5.http.protocol.HttpClientContext;
 import org.apache.hc.core5.http.ContentType;
 import org.apache.hc.core5.http.HttpEntity;
-import org.apache.hc.core5.util.Timeout;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Component;
@@ -32,52 +26,34 @@ import org.springframework.stereotype.Component;
  * always did. The response limits jsoup applied for free are reimposed here: refuse
  * anything that is not HTML, stop reading at a fixed size, and treat an error status
  * as a failure to read the page.
+ *
+ * <p>The client itself is {@link GuardedHttpClient}'s, shared with everything else
+ * that reaches out.
  */
 @Component
 class HttpDocumentLoader implements DocumentLoader {
 
-    private static final String USER_AGENT =
-            "Mozilla/5.0 (compatible; Harbor/1.0; +local-first bookmark manager)";
     private static final Set<String> HTML_MIME_TYPES =
             Set.of("text/html", "application/xhtml+xml");
     private static final int ERROR_STATUS_FLOOR = 400;
 
-    private final CloseableHttpClient httpClient;
+    private final GuardedHttpClient httpClient;
     private final int maxBodyBytes;
 
-    HttpDocumentLoader(GuardedDnsResolver dnsResolver, OutboundFetchProperties properties) {
+    HttpDocumentLoader(GuardedHttpClient httpClient, OutboundFetchProperties properties) {
+        this.httpClient = httpClient;
         this.maxBodyBytes = properties.maxBodyBytes();
-        Timeout timeout = Timeout.ofMilliseconds(properties.timeout().toMillis());
-        this.httpClient = HttpClients.custom()
-                .setConnectionManager(PoolingHttpClientConnectionManagerBuilder.create()
-                        .setDnsResolver(dnsResolver)
-                        .setDefaultConnectionConfig(ConnectionConfig.custom()
-                                .setConnectTimeout(timeout)
-                                .setSocketTimeout(timeout)
-                                .build())
-                        .build())
-                .setDefaultRequestConfig(RequestConfig.custom()
-                        .setRedirectsEnabled(true)
-                        .setCircularRedirectsAllowed(false)
-                        .setMaxRedirects(properties.maxRedirects())
-                        .setConnectionRequestTimeout(timeout)
-                        .setResponseTimeout(timeout)
-                        .build())
-                .disableCookieManagement()
-                .disableAuthCaching()
-                .disableAutomaticRetries()
-                .build();
     }
 
     @Override
     public Document load(String url) throws IOException {
         HttpGet request = new HttpGet(url);
-        request.setHeader("User-Agent", USER_AGENT);
+        request.setHeader("User-Agent", GuardedHttpClient.USER_AGENT);
         request.setHeader("Accept", "text/html,application/xhtml+xml");
 
         HttpClientContext context = HttpClientContext.create();
         try {
-            String html = httpClient.execute(request, context, response -> {
+            String html = httpClient.client().execute(request, context, response -> {
                 if (response.getCode() >= ERROR_STATUS_FLOOR) {
                     throw new IOException("%s answered %d".formatted(url, response.getCode()));
                 }

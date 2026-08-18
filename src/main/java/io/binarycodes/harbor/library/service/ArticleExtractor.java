@@ -1,7 +1,5 @@
 package io.binarycodes.harbor.library.service;
 
-import java.util.Comparator;
-import java.util.List;
 import java.util.Set;
 import java.util.regex.Pattern;
 
@@ -9,7 +7,6 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.nodes.Node;
 import org.jsoup.nodes.TextNode;
-import org.jsoup.select.Elements;
 
 /**
  * Turns a fetched page into the Markdown the reader shows. Only the parts of a
@@ -17,15 +14,11 @@ import org.jsoup.select.Elements;
  * dropped — and the result is Markdown rather than HTML so the reader can render
  * it through the same sanitised component as the reader's own notes.
  *
- * <p>This is deliberately a plain structural extraction, not a readability score:
- * it prefers the page's own {@code <article>} or {@code <main>} landmark, and only
- * falls back to picking the densest block of prose when a page offers neither.
+ * <p>Which part of the page is the article is {@link ArticleContent}'s decision;
+ * this turns whatever that hands back into prose.
  */
 public final class ArticleExtractor {
 
-    private static final String NOISE = "script, style, noscript, nav, aside, footer, header, form,"
-            + " iframe, svg, button, figure figcaption";
-    private static final List<String> CONTENT_ROOTS = List.of("article", "[role=main]", "main");
     private static final int SHORTEST_USEFUL_ARTICLE = 200;
 
     private static final String BLOCK_SELECTOR = "h1, h2, h3, h4, p, ul, ol, blockquote, pre";
@@ -47,15 +40,10 @@ public final class ArticleExtractor {
      *         little prose to be worth showing in the reader
      */
     public static String toMarkdown(Document document) {
-        if (document == null) {
-            return "";
-        }
-        Element root = contentRoot(document.clone());
+        Element root = ArticleContent.cleaned(document);
         if (root == null) {
             return "";
         }
-        root.select(NOISE).remove();
-
         StringBuilder markdown = new StringBuilder();
         for (Element block : root.select(BLOCK_SELECTOR)) {
             if (isNested(block)) {
@@ -65,35 +53,6 @@ public final class ArticleExtractor {
         }
         String result = markdown.toString().strip();
         return result.length() < SHORTEST_USEFUL_ARTICLE ? "" : result;
-    }
-
-    private static Element contentRoot(Document document) {
-        for (String selector : CONTENT_ROOTS) {
-            Element candidate = document.selectFirst(selector);
-            if (candidate != null) {
-                return candidate;
-            }
-        }
-        return densestBlock(document);
-    }
-
-    /**
-     * The element whose own paragraphs carry the most text. Pages without a
-     * landmark still tend to keep the article in one container.
-     */
-    private static Element densestBlock(Document document) {
-        Elements candidates = document.select("div, section, td");
-        return candidates.stream()
-                .max(Comparator.comparingInt(ArticleExtractor::directParagraphLength))
-                .filter(candidate -> directParagraphLength(candidate) > 0)
-                .orElse(document.body());
-    }
-
-    private static int directParagraphLength(Element element) {
-        return element.children().stream()
-                .filter(child -> "p".equals(child.tagName()))
-                .mapToInt(child -> child.text().length())
-                .sum();
     }
 
     /**

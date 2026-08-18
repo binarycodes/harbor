@@ -149,8 +149,8 @@ class HttpDocumentLoaderTest {
     private static HttpDocumentLoader loader(List<String> allowed, int maxBodyBytes) {
         OutboundFetchProperties properties = new OutboundFetchProperties(
                 ReservedAddressRanges.notations(), allowed, Duration.ofSeconds(5), 5, maxBodyBytes);
-        return new HttpDocumentLoader(
-                new GuardedDnsResolver(new OutboundAddressPolicy(properties)), properties);
+        return new HttpDocumentLoader(new GuardedHttpClient(
+                new GuardedDnsResolver(new OutboundAddressPolicy(properties)), properties), properties);
     }
 
     private interface UnsafeHandler {
