@@ -124,20 +124,95 @@ volumes:
 ### Podman Quadlet (systemd)
 
 If you run [Podman](https://podman.io), a [Quadlet](https://docs.podman.io/en/latest/markdown/podman-systemd.unit.5.html)
-lets systemd manage the container declaratively — start on boot, restart on
-failure, and optional auto-updates — without a long-running daemon. Drop this in
-`/etc/containers/systemd/harbor.container` (rootful) or
-`~/.config/containers/systemd/harbor.container` (rootless):
+lets systemd manage the containers declaratively — start on boot, restart on
+failure, and optional auto-updates — without a long-running daemon.
+
+Harbor is three containers, so this is five unit files rather than one. They go in
+`/etc/containers/systemd/` (rootful) or `~/.config/containers/systemd/` (rootless).
+A network of their own is what lets them find each other by name; containers on
+Podman's default network cannot.
+
+`harbor.network`:
+
+```ini
+[Network]
+```
+
+`harbor-data.volume`:
+
+```ini
+[Volume]
+```
+
+`harbor-postgres.container` — your library lives here, so this volume is the thing
+to back up:
+
+```ini
+[Unit]
+Description=Harbor's database
+
+[Container]
+ContainerName=harbor-postgres
+Image=docker.io/postgres:18-alpine
+Network=harbor.network
+# The parent directory, not data/ — since 18 these images keep their data in a
+# major-version subdirectory so pg_upgrade can work across one mount.
+Volume=harbor-data.volume:/var/lib/postgresql
+Environment=POSTGRES_DB=harbor
+Environment=POSTGRES_USER=harbor
+Environment=POSTGRES_PASSWORD=change-me
+HealthCmd=pg_isready -U harbor -d harbor
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target default.target
+```
+
+`harbor-chromium.container` — the browser that renders the archives. Note it
+publishes no port: nothing outside this network needs to reach it:
+
+```ini
+[Unit]
+Description=The browser Harbor archives with
+
+[Container]
+ContainerName=harbor-chromium
+Image=docker.io/chromedp/headless-shell:151.0.7922.109
+Network=harbor.network
+# Chromium treats /dev/shm as its scratch space and the 64 MB default is too little.
+# A browser rendering pages from the open web also wants a ceiling.
+PodmanArgs=--shm-size=512m --memory=1g
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target default.target
+```
+
+`harbor.container`:
 
 ```ini
 [Unit]
 Description=Harbor research library
-After=network-online.target
+# Harbor refuses to start without a browser configured, and cannot save without one.
+Requires=harbor-postgres.service harbor-chromium.service
+After=harbor-postgres.service harbor-chromium.service network-online.target
 Wants=network-online.target
 
 [Container]
+ContainerName=harbor
 Image=docker.io/binarycodes/harbor:latest
+Network=harbor.network
 PublishPort=8080:8080
+Environment=HARBOR_DB_URL=jdbc:postgresql://harbor-postgres:5432/harbor
+Environment=HARBOR_DB_USER=harbor
+Environment=HARBOR_DB_PASSWORD=change-me
+Environment=HARBOR_BROWSER_URL=http://harbor-chromium:9222
+# Only if you need Harbor to reach private addresses; see below.
+# Environment=HARBOR_ALLOWED_RANGES=192.168.1.50/32
 # Opt in to `podman auto-update` pulling newer :latest images.
 AutoUpdate=registry
 
@@ -149,15 +224,24 @@ Restart=always
 WantedBy=multi-user.target default.target
 ```
 
-Then reload systemd and start it (add `--user` for the rootless path):
+`ContainerName` is set explicitly in each because Quadlet otherwise names a
+container after its unit with a `systemd-` prefix, and those names are what the
+URLs above resolve.
+
+Then reload systemd and start it (add `--user` for the rootless path). Starting
+Harbor pulls the other two in through `Requires=`:
 
 ```bash
 systemctl daemon-reload
+```
+
+```bash
 systemctl start harbor.service
 ```
 
 With `AutoUpdate=registry`, enabling `podman-auto-update.timer` keeps the
-container on the latest published image.
+containers on the latest published images — though `harbor-chromium` is pinned to a
+version, so updating the browser is a deliberate edit rather than automatic.
 
 ### Serve over HTTPS (recommended)
 
