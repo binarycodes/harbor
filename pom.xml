@@ -206,6 +206,18 @@
             <artifactId>testcontainers-postgresql</artifactId>
             <scope>test</scope>
         </dependency>
+        <!--
+            Reads the text back out of an archived PDF. Asserting on %PDF- and %%EOF is
+            not enough: a blank page carries both, so a browser that rendered nothing
+            passes. Apache-2.0, and test scope only — nothing in the application reads
+            a PDF.
+        -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.7</version>
+            <scope>test</scope>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-testcontainers</artifactId>

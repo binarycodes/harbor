@@ -2,6 +2,7 @@ package io.binarycodes.harbor;
 
 import java.time.Duration;
 
+import org.testcontainers.Testcontainers;
 import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
@@ -35,10 +36,31 @@ public final class ArchivingBrowser {
     private ArchivingBrowser() {
     }
 
-    public static synchronized String url() {
+    /**
+     * Where the browser should look for a server running in this JVM.
+     *
+     * <p>Not {@code 127.0.0.1}: inside a container that is the container's own
+     * loopback, so a fixture served here is simply not there and the browser prints a
+     * blank page — which looks like a working archive right up to the byte count.
+     * Testcontainers bridges the host under a name the container can resolve.
+     */
+    public static synchronized String hostAddress(int port) {
+        if (isExternal()) {
+            return "127.0.0.1:" + port;
+        }
+        url();
+        Testcontainers.exposeHostPorts(port);
+        return "host.testcontainers.internal:" + port;
+    }
+
+    private static boolean isExternal() {
         String external = System.getProperty(EXTERNAL);
-        if (external != null && !external.isBlank()) {
-            return external;
+        return external != null && !external.isBlank();
+    }
+
+    public static synchronized String url() {
+        if (isExternal()) {
+            return System.getProperty(EXTERNAL);
         }
         if (container == null) {
             container = new GenericContainer<>(DockerImageName.parse(IMAGE))

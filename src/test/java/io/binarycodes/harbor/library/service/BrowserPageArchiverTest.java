@@ -12,6 +12,10 @@ import java.time.Duration;
 import java.util.Arrays;
 import java.util.Optional;
 
+import org.apache.pdfbox.Loader;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+
 import org.jsoup.Jsoup;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -79,13 +83,17 @@ class BrowserPageArchiverTest {
     }
 
     @Test
-    @DisplayName("prints a real PDF")
+    @DisplayName("prints a real PDF carrying the page's own words")
     void printsAPdf() {
         byte[] pdf = archive(url("/plain")).orElseThrow(() -> new AssertionError("nothing archived"));
 
         assertArrayEquals(PDF_MAGIC, Arrays.copyOf(pdf, PDF_MAGIC.length));
         assertTrue(new String(pdf, StandardCharsets.ISO_8859_1).contains("%%EOF"),
                 "a PDF ends with its trailer");
+        // The assertion that matters: a browser that reached nothing prints a blank
+        // page, and a blank page has the magic bytes and the trailer too.
+        assertTrue(textOf(pdf).contains("A plain page"),
+                "the archive should carry the heading the page served");
     }
 
     /**
@@ -96,20 +104,24 @@ class BrowserPageArchiverTest {
     @Test
     @DisplayName("applies the CSS the old renderer could not")
     void appliesModernCss() {
-        int plain = archive(url("/plain")).orElseThrow().length;
-        int modern = archive(url("/modern")).orElseThrow().length;
+        byte[] plain = archive(url("/plain")).orElseThrow();
+        byte[] modern = archive(url("/modern")).orElseThrow();
 
-        assertTrue(modern > plain, "a page with a gradient and flex should cost more bytes than a bare one,"
-                + " but was " + modern + " against " + plain);
+        assertTrue(textOf(modern).contains("Left column"), "the flex row should have been laid out");
+        assertTrue(modern.length > plain.length,
+                "a gradient and a flex row should cost more bytes than a bare page, but was "
+                        + modern.length + " against " + plain.length);
     }
 
+    /**
+     * The case docs/issues/002 was about, and the reason a browser does the rendering:
+     * this text exists only after the page's script has run.
+     */
     @Test
     @DisplayName("captures what the page's own script drew")
     void capturesScriptedContent() {
-        String rendered = new String(archive(url("/deferred")).orElseThrow(),
-                StandardCharsets.ISO_8859_1);
-
-        assertTrue(rendered.contains("%PDF-"), "should still be a PDF");
+        assertTrue(textOf(archive(url("/deferred")).orElseThrow()).contains("drawn by script"),
+                "content the script added should be in the archive");
     }
 
     /**
@@ -175,6 +187,19 @@ class BrowserPageArchiverTest {
     }
 
     private String url(String path) {
-        return "http://127.0.0.1:" + server.getAddress().getPort() + path;
+        return "http://" + ArchivingBrowser.hostAddress(server.getAddress().getPort()) + path;
+    }
+
+    /**
+     * The text the browser actually laid out. A blank page is still a valid PDF with
+     * the right magic bytes, so this is the only assertion that can tell "archived the
+     * page" from "archived nothing".
+     */
+    private static String textOf(byte[] pdf) {
+        try (PDDocument document = Loader.loadPDF(pdf)) {
+            return new PDFTextStripper().getText(document).replaceAll("\\s+", " ").trim();
+        } catch (IOException unreadable) {
+            throw new AssertionError("the archive was not a readable PDF", unreadable);
+        }
     }
 }
