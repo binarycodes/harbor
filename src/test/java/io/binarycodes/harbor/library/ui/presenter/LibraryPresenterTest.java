@@ -36,7 +36,7 @@ import io.binarycodes.harbor.library.service.LegacyLibraryDecoder;
 @SpringBootTest
 @Import({ HarborDatabase.class, BrowserlessStorageConfiguration.class })
 @DisplayName("The library presenter")
-class LibraryPresenterIT {
+class LibraryPresenterTest {
 
     private static final String LEGACY_KEY = "harbor.library.v1";
 

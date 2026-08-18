@@ -36,9 +36,9 @@ import io.binarycodes.harbor.library.domain.SortMode;
 import io.binarycodes.harbor.library.domain.TagCount;
 
 @SpringBootTest
-@Import({ HarborDatabase.class, BookmarkServiceIT.FixedClock.class })
+@Import({ HarborDatabase.class, BookmarkServiceTest.FixedClock.class })
 @DisplayName("The library")
-class BookmarkServiceIT {
+class BookmarkServiceTest {
 
     @Autowired
     private BookmarkService service;

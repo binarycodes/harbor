@@ -45,11 +45,17 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
      * The library used to be per-browser, so a fresh browser was a fresh library.
      * It is one database now, and these journeys share it — each has to start from
      * the empty library a first visit sees.
+     *
+     * <p>The reload matters: the base class opens the page before this runs, so
+     * without it the browser is still showing whatever the previous journey left
+     * behind.
      */
     @BeforeEach
     void startFromAnEmptyLibrary() {
         bookmarkService.find(LibraryQuery.of(LibraryScope.ALL))
                 .forEach(bookmark -> bookmarkService.remove(bookmark.id()));
+        page.navigate(getUrl());
+        waitForVaadin();
     }
 
     @LocalServerPort
