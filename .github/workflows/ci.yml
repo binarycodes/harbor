@@ -32,20 +32,11 @@ jobs:
       # Harbor archives with a real browser and will not save a page it cannot
       # archive, so the suite needs one. Built from the repository rather than pulled,
       # for the same reason the image is ours: the flags are visible here.
-      # Started the way a developer starts it, so this covers the compose service and
-      # its healthcheck as well as the image — none of which anything else exercises,
-      # since the tests get their PostgreSQL from Testcontainers rather than compose.
-      # --wait means the step only returns once the browser reports healthy.
-      - name: start the archiving browser
-        run: ./run.sh browser up
-
-      - name: check the browser answers
-        run: curl -fsS http://127.0.0.1:9222/json/version
-
+      # No browser to start: the tests bring up their own Chromium the same way they
+      # bring up PostgreSQL, so there is one mechanism rather than two and nothing here
+      # to keep in step with the compose file.
       - name: maven verify
-        run: |
-          mvn --batch-mode --no-transfer-progress -Dbuild.commit=${{ github.sha }} \
-              -Dharbor.archive.browser-url=http://127.0.0.1:9222 clean verify
+        run: mvn --batch-mode --no-transfer-progress -Dbuild.commit=${{ github.sha }} clean verify
 
   docker:
     name: build and publish docker image

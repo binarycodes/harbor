@@ -17,20 +17,20 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.junit.jupiter.api.condition.EnabledIfSystemProperty;
-
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+
+import io.binarycodes.harbor.ArchivingBrowser;
 
 /**
  * Archiving through a real browser. The page comes from a server on loopback, so
  * what is being tested is the protocol conversation rather than anyone's website.
  *
- * <p>Needs the sidecar. {@code -Dharbor.archive.browser-url=…} points it at one;
- * without that these skip, because there is nothing useful to say about a browser
- * that is not there.
+ * <p>The browser comes from {@link ArchivingBrowser} — a container, or one of your
+ * own if you pointed the build at it. These never skip: archiving is the only way
+ * Harbor makes a PDF, so a suite that quietly passed without exercising it would be
+ * covering nothing.
  */
-@EnabledIfSystemProperty(named = "harbor.archive.browser-url", matches = ".+")
 @DisplayName("Archiving a page with the browser")
 class BrowserPageArchiverTest {
 
@@ -148,7 +148,7 @@ class BrowserPageArchiverTest {
     }
 
     private static String browserUrl() {
-        return System.getProperty("harbor.archive.browser-url");
+        return ArchivingBrowser.url();
     }
 
     /**

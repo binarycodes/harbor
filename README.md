@@ -240,6 +240,14 @@ Run the tests:
 ./run.sh verify    # the above plus the Playwright end-to-end journeys
 ```
 
+Both start their own PostgreSQL and their own Chromium in containers, so neither needs
+the development stack running. Where containers cannot run, point them at your own
+instead:
+
+```bash
+./run.sh verify -Dharbor.test.database=external -Dspring.datasource.url=jdbc:postgresql://host:5432/harbor_test -Dharbor.archive.browser-url=http://host:9222
+```
+
 Two more tasks worth knowing: after changing a `@CssImport(themeFor=…)` or
 `@JsModule`, run `./run.sh bundle`; after editing an `@import`-ed CSS partial, run
 `./run.sh styles` so the browser stops serving the stale one.
