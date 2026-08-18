@@ -10,7 +10,7 @@ import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.component.page.ColorScheme;
 
 import io.binarycodes.harbor.library.domain.ColorSchemePreference;
-import io.binarycodes.harbor.library.service.BookmarkService;
+import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 
 /**
  * The foot of the drawer: a reminder that the library lives on this device only,
@@ -23,14 +23,14 @@ import io.binarycodes.harbor.library.service.BookmarkService;
  */
 public class StorageFooter extends HorizontalLayout {
 
-    private final BookmarkService bookmarkService;
+    private final LibraryPresenter presenter;
     private final Span itemCount = new Span();
     private final Button colorSchemeToggle = new Button();
 
     private ColorScheme.Value appliedColorScheme;
 
-    public StorageFooter(BookmarkService bookmarkService) {
-        this.bookmarkService = bookmarkService;
+    public StorageFooter(LibraryPresenter presenter) {
+        this.presenter = presenter;
 
         addClassName("storage-footer");
         setPadding(false);
@@ -58,11 +58,11 @@ public class StorageFooter extends HorizontalLayout {
     }
 
     public void refresh() {
-        int count = bookmarkService.count();
+        int count = presenter.count();
         itemCount.setText(count == 1
                 ? getTranslation("sidebar.storage.items.one")
                 : getTranslation("sidebar.storage.items.many", count));
-        ColorSchemePreference preference = bookmarkService.getColorScheme();
+        ColorSchemePreference preference = presenter.getColorScheme();
         colorSchemeToggle.setIcon(iconFor(preference));
         colorSchemeToggle.setAriaLabel(getTranslation(labelKeyFor(next(preference))));
         colorSchemeToggle.setTooltipText(getTranslation(labelKeyFor(next(preference))));
@@ -70,7 +70,7 @@ public class StorageFooter extends HorizontalLayout {
     }
 
     private void cycleColorScheme() {
-        bookmarkService.setColorScheme(next(bookmarkService.getColorScheme()));
+        presenter.setColorScheme(next(presenter.getColorScheme()));
     }
 
     private void applyColorScheme(ColorScheme.Value value) {

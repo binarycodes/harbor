@@ -1,4 +1,4 @@
-package io.binarycodes.harbor.library.service;
+package io.binarycodes.harbor.library.ui.presenter;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;

@@ -8,7 +8,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import java.time.Duration;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicInteger;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,8 +15,6 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-
-import com.vaadin.flow.shared.Registration;
 
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.BookmarkType;
@@ -31,6 +28,13 @@ import io.binarycodes.harbor.library.domain.TagCount;
 
 @DisplayName("The library")
 class BookmarkServiceTest {
+
+    /**
+     * What {@link BookmarkService#load(Runnable)} calls back. Who redraws when the
+     * library arrives is the presenter's business, and none of these tests have one.
+     */
+    private static final Runnable NOTHING = () -> {
+    };
 
     private InMemoryLibraryStorage storage;
     private TestClock clock;
@@ -50,7 +54,7 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("starts empty rather than with sample data")
         void startsEmpty() {
-            service.load();
+            service.load(NOTHING);
 
             assertTrue(service.isLoaded());
             assertEquals(0, service.count());
@@ -60,7 +64,7 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("reports nothing to read later and no highlights")
         void reportsEmptyCounts() {
-            service.load();
+            service.load(NOTHING);
 
             assertEquals(0, service.countReadLater());
             assertEquals(0, service.countHighlights());
@@ -70,21 +74,9 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("leaves the color scheme to the operating system")
         void defaultsToSystemColorScheme() {
-            service.load();
+            service.load(NOTHING);
 
             assertEquals(ColorSchemePreference.SYSTEM, service.getColorScheme());
-        }
-
-        @Test
-        @DisplayName("only asks the browser once")
-        void readsStorageOnce() {
-            AtomicInteger changes = new AtomicInteger();
-            service.addChangeListener(changes::incrementAndGet);
-
-            service.load();
-            service.load();
-
-            assertEquals(1, changes.get());
         }
     }
 
@@ -95,7 +87,7 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("puts the newest bookmark first and writes it to storage")
         void addsNewestFirst() {
-            service.load();
+            service.load(NOTHING);
 
             save("https://example.com/one", "One");
             clock.advance(Duration.ofMinutes(5));
@@ -109,7 +101,7 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("stamps the bookmark with the time it was saved")
         void stampsSavedAt() {
-            service.load();
+            service.load(NOTHING);
 
             Bookmark saved = save("https://example.com/one", "One");
 
@@ -124,7 +116,7 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("gives every bookmark its own identity")
         void assignsDistinctIds() {
-            service.load();
+            service.load(NOTHING);
 
             Bookmark first = save("https://example.com/one", "One");
             Bookmark second = save("https://example.com/two", "Two");
@@ -135,7 +127,7 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("never records a reading time below a minute")
         void keepsReadingTimePositive() {
-            service.load();
+            service.load(NOTHING);
             LinkDraft draft = draft("https://example.com/short", "Short");
             draft.setReadingMinutes(0);
 
@@ -149,7 +141,7 @@ class BookmarkServiceTest {
 
         @BeforeEach
         void fillLibrary() {
-            service.load();
+            service.load(NOTHING);
             LinkDraft flexbox = draft("https://joshwcomeau.com/flexbox", "An Interactive Guide to Flexbox");
             flexbox.setTags(List.of("Web", "Design"));
             service.add(flexbox);
@@ -255,7 +247,7 @@ class BookmarkServiceTest {
 
         @BeforeEach
         void saveOne() {
-            service.load();
+            service.load(NOTHING);
             id = save("https://example.com/one", "One").id();
         }
 
@@ -360,12 +352,12 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("restores what the previous visit saved")
         void restoresStoredLibrary() {
-            service.load();
+            service.load(NOTHING);
             save("https://example.com/one", "One");
             service.setColorScheme(ColorSchemePreference.DARK);
 
             BookmarkService reopened = new BookmarkService(new BookmarkStore(storage), clock);
-            reopened.load();
+            reopened.load(NOTHING);
 
             assertEquals(1, reopened.count());
             assertEquals("One", reopened.find(LibraryQuery.of(LibraryScope.ALL)).getFirst().title());
@@ -375,13 +367,13 @@ class BookmarkServiceTest {
         @Test
         @DisplayName("keeps notes and highlights")
         void restoresAnnotations() {
-            service.load();
+            service.load(NOTHING);
             String id = save("https://example.com/one", "One").id();
             service.updateNotes(id, "remember this");
             service.addHighlight(id, "a passage worth keeping");
 
             BookmarkService reopened = new BookmarkService(new BookmarkStore(storage), clock);
-            reopened.load();
+            reopened.load(NOTHING);
 
             Bookmark restored = reopened.findById(id).orElseThrow();
             assertEquals("remember this", restored.notes());
@@ -395,32 +387,10 @@ class BookmarkServiceTest {
             BookmarkService withRubbish = new BookmarkService(
                     new BookmarkStore(new InMemoryLibraryStorage("{ this is not our json")), clock);
 
-            withRubbish.load();
+            withRubbish.load(NOTHING);
 
             assertTrue(withRubbish.isLoaded());
             assertEquals(0, withRubbish.count());
-        }
-    }
-
-    @Nested
-    @DisplayName("change notifications")
-    class Notifications {
-
-        @Test
-        @DisplayName("fire on every change and stop once the listener is removed")
-        void notifyUntilRemoved() {
-            AtomicInteger changes = new AtomicInteger();
-            Registration registration = service.addChangeListener(changes::incrementAndGet);
-
-            service.load();
-            save("https://example.com/one", "One");
-            int whileListening = changes.get();
-
-            registration.remove();
-            save("https://example.com/two", "Two");
-
-            assertTrue(whileListening >= 2);
-            assertEquals(whileListening, changes.get());
         }
     }
 
@@ -435,7 +405,7 @@ class BookmarkServiceTest {
 
         @BeforeEach
         void saveThreeLengths() {
-            service.load();
+            service.load(NOTHING);
             saveMinutes("https://example.com/medium", "Medium", 9);
             saveMinutes("https://example.com/long", "Long", 30);
             saveMinutes("https://example.com/short", "Short", 2);

@@ -17,8 +17,8 @@ import com.vaadin.flow.shared.Registration;
 import io.binarycodes.harbor.base.ui.EmptyState;
 import io.binarycodes.harbor.base.ui.MainLayout;
 import io.binarycodes.harbor.library.domain.Bookmark;
-import io.binarycodes.harbor.library.service.BookmarkService;
 import io.binarycodes.harbor.library.ui.component.HighlightGroupCard;
+import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 
 /**
  * Every passage the reader has kept, gathered from all their bookmarks.
@@ -26,13 +26,13 @@ import io.binarycodes.harbor.library.ui.component.HighlightGroupCard;
 @Route(value = "highlights", layout = MainLayout.class)
 public class HighlightsView extends VerticalLayout implements HasDynamicTitle {
 
-    private final BookmarkService bookmarkService;
+    private final LibraryPresenter presenter;
     private final Div groups = new Div();
     private final EmptyState emptyState = new EmptyState();
     private final List<Registration> registrations = new ArrayList<>();
 
-    public HighlightsView(BookmarkService bookmarkService) {
-        this.bookmarkService = bookmarkService;
+    public HighlightsView(LibraryPresenter presenter) {
+        this.presenter = presenter;
 
         addClassName("highlights-view");
         setSizeFull();
@@ -50,8 +50,8 @@ public class HighlightsView extends VerticalLayout implements HasDynamicTitle {
     @Override
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
-        registrations.add(bookmarkService.addChangeListener(this::refresh));
-        bookmarkService.load();
+        registrations.add(presenter.addChangeListener(this::refresh));
+        presenter.load();
         refresh();
     }
 
@@ -63,11 +63,11 @@ public class HighlightsView extends VerticalLayout implements HasDynamicTitle {
     }
 
     private void refresh() {
-        List<Bookmark> annotated = bookmarkService.withHighlights();
+        List<Bookmark> annotated = presenter.withHighlights();
         groups.removeAll();
         annotated.forEach(bookmark -> groups.add(new HighlightGroupCard(bookmark, this::open)));
 
-        boolean nothingToShow = annotated.isEmpty() && bookmarkService.isLoaded();
+        boolean nothingToShow = annotated.isEmpty() && presenter.isLoaded();
         groups.setVisible(!annotated.isEmpty());
         emptyState.setVisible(nothingToShow);
         if (nothingToShow) {

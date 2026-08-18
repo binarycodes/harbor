@@ -74,7 +74,8 @@ Project-wide rules. Once a pattern is established here, follow it without prompt
 
 ## 9. Project layout
 
-- Feature-based packaging: `base/` for shared infrastructure, feature packages with their own `domain/` / `service/` / `ui/`.
+- Feature-based packaging: `base/` for shared infrastructure, feature packages with their own `domain/` / `service/` / `ui/`, plus `ui/presenter/` for the session-scoped classes the screens talk to.
+- Dependencies run one way: `ui` → `ui/presenter` → `service` → storage, never backwards. A service imports no Vaadin: a change listener is how a component learns to redraw itself, so listeners and the orchestration around them belong to the presenter, which is also the only layer that needs to be session-scoped.
 - One public class per file; helpers stay private static unless reused.
 
 ## 10. Persistence

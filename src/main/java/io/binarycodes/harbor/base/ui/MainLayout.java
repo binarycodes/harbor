@@ -19,10 +19,9 @@ import com.vaadin.flow.shared.Registration;
 
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.TagCount;
-import io.binarycodes.harbor.library.service.BookmarkService;
-import io.binarycodes.harbor.library.service.LibraryFilter;
-import io.binarycodes.harbor.library.service.MetadataResolver;
 import io.binarycodes.harbor.library.ui.component.SaveLinkDialog;
+import io.binarycodes.harbor.library.ui.presenter.LibraryFilter;
+import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 import io.binarycodes.harbor.library.ui.view.ReaderView;
 
 /**
@@ -35,7 +34,7 @@ import io.binarycodes.harbor.library.ui.view.ReaderView;
  */
 public class MainLayout extends AppLayout {
 
-    private final BookmarkService bookmarkService;
+    private final LibraryPresenter presenter;
     private final LibraryFilter libraryFilter;
     private final LibraryNavigation navigation = new LibraryNavigation();
     private final TagFilterList tagFilters;
@@ -43,13 +42,12 @@ public class MainLayout extends AppLayout {
     private final SaveLinkDialog saveLinkDialog;
     private final List<Registration> registrations = new ArrayList<>();
 
-    public MainLayout(BookmarkService bookmarkService, LibraryFilter libraryFilter,
-            MetadataResolver metadataResolver) {
-        this.bookmarkService = bookmarkService;
+    public MainLayout(LibraryPresenter presenter, LibraryFilter libraryFilter) {
+        this.presenter = presenter;
         this.libraryFilter = libraryFilter;
-        tagFilters = new TagFilterList(bookmarkService, libraryFilter);
-        storageFooter = new StorageFooter(bookmarkService);
-        saveLinkDialog = new SaveLinkDialog(bookmarkService, metadataResolver, this::openReader);
+        tagFilters = new TagFilterList(presenter, libraryFilter);
+        storageFooter = new StorageFooter(presenter);
+        saveLinkDialog = new SaveLinkDialog(presenter, this::openReader);
 
         setPrimarySection(Section.DRAWER);
         addToNavbar(new DrawerToggle());
@@ -59,9 +57,9 @@ public class MainLayout extends AppLayout {
     @Override
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
-        registrations.add(bookmarkService.addChangeListener(this::onLibraryChanged));
+        registrations.add(presenter.addChangeListener(this::onLibraryChanged));
         registrations.add(libraryFilter.addChangeListener(this::refreshSidebar));
-        bookmarkService.load();
+        presenter.load();
         refreshSidebar();
     }
 
@@ -105,13 +103,13 @@ public class MainLayout extends AppLayout {
     }
 
     private void refreshSidebar() {
-        navigation.refresh(bookmarkService.count(), bookmarkService.countReadLater(),
-                bookmarkService.countHighlights());
+        navigation.refresh(presenter.count(), presenter.countReadLater(),
+                presenter.countHighlights());
         tagFilters.refresh();
         storageFooter.refresh();
     }
 
     private Set<String> knownTags() {
-        return bookmarkService.tagCounts().stream().map(TagCount::name).collect(Collectors.toSet());
+        return presenter.tagCounts().stream().map(TagCount::name).collect(Collectors.toSet());
     }
 }

@@ -9,8 +9,8 @@ import com.vaadin.flow.component.orderedlayout.HorizontalLayout;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 
 import io.binarycodes.harbor.library.domain.TagCount;
-import io.binarycodes.harbor.library.service.BookmarkService;
-import io.binarycodes.harbor.library.service.LibraryFilter;
+import io.binarycodes.harbor.library.ui.presenter.LibraryFilter;
+import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 
 /**
  * Every tag in the library as a toggle, most used first. Selecting several
@@ -23,13 +23,13 @@ import io.binarycodes.harbor.library.service.LibraryFilter;
  */
 public class TagFilterList extends VerticalLayout {
 
-    private final BookmarkService bookmarkService;
+    private final LibraryPresenter presenter;
     private final LibraryFilter libraryFilter;
     private final Button clearButton;
     private final Div tags = new Div();
 
-    public TagFilterList(BookmarkService bookmarkService, LibraryFilter libraryFilter) {
-        this.bookmarkService = bookmarkService;
+    public TagFilterList(LibraryPresenter presenter, LibraryFilter libraryFilter) {
+        this.presenter = presenter;
         this.libraryFilter = libraryFilter;
 
         addClassName("tag-filter-list");
@@ -58,8 +58,8 @@ public class TagFilterList extends VerticalLayout {
     public void refresh() {
         clearButton.setVisible(libraryFilter.hasSelectedTags());
         tags.removeAll();
-        bookmarkService.tagCounts().forEach(tag -> tags.add(toggle(tag)));
-        setVisible(!bookmarkService.tagCounts().isEmpty());
+        presenter.tagCounts().forEach(tag -> tags.add(toggle(tag)));
+        setVisible(!presenter.tagCounts().isEmpty());
     }
 
     private NativeButton toggle(TagCount tag) {

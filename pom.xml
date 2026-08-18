@@ -265,6 +265,7 @@
                                     <element>PACKAGE</element>
                                     <includes>
                                         <include>io.binarycodes.harbor.*.service</include>
+                                        <include>io.binarycodes.harbor.*.ui.presenter</include>
                                     </includes>
                                     <limits>
                                         <limit>

@@ -17,9 +17,8 @@ import io.binarycodes.harbor.base.ui.EmptyState;
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.LibraryQuery;
 import io.binarycodes.harbor.library.domain.LibraryScope;
-import io.binarycodes.harbor.library.service.BookmarkService;
-import io.binarycodes.harbor.library.service.LibraryFilter;
-import io.binarycodes.harbor.library.service.MetadataResolver;
+import io.binarycodes.harbor.library.ui.presenter.LibraryFilter;
+import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 import io.binarycodes.harbor.library.ui.view.ReaderView;
 
 /**
@@ -29,7 +28,7 @@ import io.binarycodes.harbor.library.ui.view.ReaderView;
 public class LibraryContent extends VerticalLayout implements BookmarkActions, HasDynamicTitle {
 
     private final LibraryScope scope;
-    private final BookmarkService bookmarkService;
+    private final LibraryPresenter presenter;
     private final LibraryFilter libraryFilter;
     private final LibraryToolbar toolbar;
     private final ActiveTagChips activeTagChips;
@@ -38,14 +37,13 @@ public class LibraryContent extends VerticalLayout implements BookmarkActions, H
     private final EmptyState emptyState = new EmptyState();
     private final List<Registration> registrations = new ArrayList<>();
 
-    protected LibraryContent(LibraryScope scope, BookmarkService bookmarkService, LibraryFilter libraryFilter,
-            MetadataResolver metadataResolver) {
+    protected LibraryContent(LibraryScope scope, LibraryPresenter presenter, LibraryFilter libraryFilter) {
         this.scope = scope;
-        this.bookmarkService = bookmarkService;
+        this.presenter = presenter;
         this.libraryFilter = libraryFilter;
         // Its own dialog rather than the sidebar's: that one belongs to the layout,
         // which a listing has no handle on, and the two are never open at once anyway.
-        editDialog = new SaveLinkDialog(bookmarkService, metadataResolver, bookmark -> {
+        editDialog = new SaveLinkDialog(presenter, bookmark -> {
         });
         toolbar = new LibraryToolbar(libraryFilter);
         activeTagChips = new ActiveTagChips(libraryFilter);
@@ -74,7 +72,7 @@ public class LibraryContent extends VerticalLayout implements BookmarkActions, H
 
     @Override
     public void toggleReadLater(Bookmark bookmark) {
-        bookmarkService.toggleReadLater(bookmark.id());
+        presenter.toggleReadLater(bookmark.id());
     }
 
     @Override
@@ -84,15 +82,15 @@ public class LibraryContent extends VerticalLayout implements BookmarkActions, H
 
     @Override
     public void remove(Bookmark bookmark) {
-        new DeleteBookmarkDialog(bookmark, () -> bookmarkService.remove(bookmark.id())).open();
+        new DeleteBookmarkDialog(bookmark, () -> presenter.remove(bookmark.id())).open();
     }
 
     @Override
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
-        registrations.add(bookmarkService.addChangeListener(this::refresh));
+        registrations.add(presenter.addChangeListener(this::refresh));
         registrations.add(libraryFilter.addChangeListener(this::refresh));
-        bookmarkService.load();
+        presenter.load();
         refresh();
     }
 
@@ -105,7 +103,7 @@ public class LibraryContent extends VerticalLayout implements BookmarkActions, H
 
     private void refresh() {
         LibraryQuery query = libraryFilter.query(scope);
-        List<Bookmark> found = bookmarkService.find(query);
+        List<Bookmark> found = presenter.find(query);
 
         toolbar.setHeading(getTranslation(scope.titleKey()), summary(query, found.size()));
         toolbar.refresh();
@@ -113,7 +111,7 @@ public class LibraryContent extends VerticalLayout implements BookmarkActions, H
 
         // Until the browser has answered with what it stored, an empty listing means
         // "not known yet", not "nothing saved" — showing either would be a guess.
-        boolean nothingToShow = found.isEmpty() && bookmarkService.isLoaded();
+        boolean nothingToShow = found.isEmpty() && presenter.isLoaded();
         listing.setVisible(!found.isEmpty());
         emptyState.setVisible(nothingToShow);
         if (nothingToShow) {

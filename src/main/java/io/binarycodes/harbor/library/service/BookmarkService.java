@@ -14,7 +14,6 @@ import java.util.function.UnaryOperator;
 import org.springframework.stereotype.Component;
 
 import com.ibm.icu.text.Collator;
-import com.vaadin.flow.shared.Registration;
 import com.vaadin.flow.spring.annotation.VaadinSessionScope;
 
 import io.binarycodes.harbor.library.domain.Bookmark;
@@ -26,10 +25,13 @@ import io.binarycodes.harbor.library.domain.LinkDraft;
 import io.binarycodes.harbor.library.domain.TagCount;
 
 /**
- * The library as the UI sees it. Held per session and mirrored to the browser on
- * every change; {@link #load()} has to finish before the contents are known,
- * because the browser answers asynchronously, so screens wait for the first
- * change event instead of reading straight after construction.
+ * The library: everything saved, and every change to it. Held per session and
+ * mirrored to the browser on every change.
+ *
+ * <p>{@link #load(Runnable)} takes a callback rather than returning, because the
+ * browser answers asynchronously and the contents are not known until it has.
+ * What that callback then does about it is not this class's concern — nothing
+ * here knows a screen exists.
  */
 @Component
 @VaadinSessionScope
@@ -38,7 +40,6 @@ public class BookmarkService {
     private final BookmarkStore store;
     private final Clock clock;
     private final List<Bookmark> bookmarks = new ArrayList<>();
-    private final List<Runnable> changeListeners = new ArrayList<>();
 
     private ColorSchemePreference colorScheme = ColorSchemePreference.SYSTEM;
     private boolean loaded;
@@ -51,23 +52,20 @@ public class BookmarkService {
     }
 
     /**
-     * Asks the browser for the stored library, once per session.
+     * Asks the browser for the stored library, once per session, and runs the
+     * callback when it has answered. A second call does nothing and never calls
+     * back — the library is already known by then.
      */
-    public void load() {
+    public void load(Runnable whenLoaded) {
         if (loadRequested) {
             return;
         }
         loadRequested = true;
-        store.read(this::apply);
+        store.read(library -> apply(library, whenLoaded));
     }
 
     public boolean isLoaded() {
         return loaded;
-    }
-
-    public Registration addChangeListener(Runnable listener) {
-        changeListeners.add(listener);
-        return () -> changeListeners.remove(listener);
     }
 
     public List<Bookmark> find(LibraryQuery query) {
@@ -224,12 +222,12 @@ public class BookmarkService {
         persist();
     }
 
-    private void apply(StoredLibrary library) {
+    private void apply(StoredLibrary library, Runnable whenLoaded) {
         bookmarks.clear();
         bookmarks.addAll(library.bookmarks());
         colorScheme = library.colorScheme();
         loaded = true;
-        notifyListeners();
+        whenLoaded.run();
     }
 
     private void replace(String id, UnaryOperator<Bookmark> change) {
@@ -244,11 +242,6 @@ public class BookmarkService {
 
     private void persist() {
         store.write(new StoredLibrary(List.copyOf(bookmarks), colorScheme));
-        notifyListeners();
-    }
-
-    private void notifyListeners() {
-        List.copyOf(changeListeners).forEach(Runnable::run);
     }
 
     private Comparator<Bookmark> comparatorFor(LibraryQuery query) {

@@ -17,13 +17,12 @@ import com.vaadin.flow.shared.Registration;
 import io.binarycodes.harbor.base.ui.EmptyState;
 import io.binarycodes.harbor.base.ui.MainLayout;
 import io.binarycodes.harbor.library.domain.Bookmark;
-import io.binarycodes.harbor.library.service.BookmarkService;
-import io.binarycodes.harbor.library.service.MetadataResolver;
 import io.binarycodes.harbor.library.ui.component.DeleteBookmarkDialog;
 import io.binarycodes.harbor.library.ui.component.ReaderArticle;
-import io.binarycodes.harbor.library.ui.component.SaveLinkDialog;
 import io.binarycodes.harbor.library.ui.component.ReaderHeader;
 import io.binarycodes.harbor.library.ui.component.ReaderSidePanel;
+import io.binarycodes.harbor.library.ui.component.SaveLinkDialog;
+import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 
 /**
  * One article, with the reader's notes and highlights beside it.
@@ -42,7 +41,7 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
 
     public static final String BOOKMARK_ID = "bookmarkId";
 
-    private final BookmarkService bookmarkService;
+    private final LibraryPresenter presenter;
     private final ReaderHeader header = new ReaderHeader(this::toggleReadLater, this::editBookmark,
             this::deleteBookmark);
     private final ReaderArticle article = new ReaderArticle(this::addHighlight);
@@ -57,12 +56,12 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
     private Registration libraryChanges;
     private boolean rendered;
 
-    public ReaderView(BookmarkService bookmarkService, MetadataResolver metadataResolver) {
-        this.bookmarkService = bookmarkService;
+    public ReaderView(LibraryPresenter presenter) {
+        this.presenter = presenter;
         sidePanel = new ReaderSidePanel(this::updateNotes, this::removeHighlight);
         // Saving an edit redraws the article in place: the change listener cannot, because
         // it deliberately leaves a rendered article alone while notes are being typed.
-        editDialog = new SaveLinkDialog(bookmarkService, metadataResolver, this::show);
+        editDialog = new SaveLinkDialog(presenter, this::show);
 
         addClassName("reader-view");
         setSizeFull();
@@ -91,8 +90,8 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
     @Override
     protected void onAttach(AttachEvent attachEvent) {
         super.onAttach(attachEvent);
-        libraryChanges = bookmarkService.addChangeListener(this::resolveBookmark);
-        bookmarkService.load();
+        libraryChanges = presenter.addChangeListener(this::resolveBookmark);
+        presenter.load();
         resolveBookmark();
     }
 
@@ -109,11 +108,11 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
         if (rendered) {
             return;
         }
-        Optional<Bookmark> found = bookmarkService.findById(bookmarkId);
+        Optional<Bookmark> found = presenter.findById(bookmarkId);
         if (found.isPresent()) {
             rendered = true;
             show(found.get());
-        } else if (bookmarkService.isLoaded()) {
+        } else if (presenter.isLoaded()) {
             showMissing();
         }
     }
@@ -146,7 +145,7 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
     }
 
     private void toggleReadLater() {
-        bookmarkService.toggleReadLater(bookmarkId);
+        presenter.toggleReadLater(bookmarkId);
         current().ifPresent(header::show);
     }
 
@@ -161,18 +160,18 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
      */
     private void deleteBookmark() {
         current().ifPresent(bookmark -> new DeleteBookmarkDialog(bookmark, () -> {
-            bookmarkService.remove(bookmarkId);
+            presenter.remove(bookmarkId);
             UI.getCurrent().navigate(LibraryView.class);
         }).open());
     }
 
     private void updateNotes(String notes) {
-        bookmarkService.updateNotes(bookmarkId, notes);
+        presenter.updateNotes(bookmarkId, notes);
         current().ifPresent(sidePanel::show);
     }
 
     private void addHighlight(String text) {
-        bookmarkService.addHighlight(bookmarkId, text);
+        presenter.addHighlight(bookmarkId, text);
         current().ifPresent(bookmark -> {
             sidePanel.show(bookmark);
             sidePanel.selectHighlights();
@@ -181,7 +180,7 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
     }
 
     private void removeHighlight(int index) {
-        bookmarkService.removeHighlight(bookmarkId, index);
+        presenter.removeHighlight(bookmarkId, index);
         current().ifPresent(bookmark -> {
             sidePanel.show(bookmark);
             article.show(bookmark);
@@ -189,6 +188,6 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
     }
 
     private Optional<Bookmark> current() {
-        return bookmarkService.findById(bookmarkId);
+        return presenter.findById(bookmarkId);
     }
 }

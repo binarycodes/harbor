@@ -28,14 +28,14 @@ import io.binarycodes.harbor.library.domain.LibraryQuery;
 import io.binarycodes.harbor.library.domain.LibraryScope;
 import io.binarycodes.harbor.library.domain.LinkDraft;
 import io.binarycodes.harbor.library.domain.ViewMode;
-import io.binarycodes.harbor.library.service.BookmarkService;
-import io.binarycodes.harbor.library.service.LibraryFilter;
 import io.binarycodes.harbor.library.ui.component.BookmarkCard;
 import io.binarycodes.harbor.library.ui.component.BookmarkRow;
 import io.binarycodes.harbor.library.ui.component.DeleteBookmarkButton;
 import io.binarycodes.harbor.library.ui.component.DeleteBookmarkDialog;
 import io.binarycodes.harbor.library.ui.component.EditBookmarkButton;
 import io.binarycodes.harbor.library.ui.component.SaveLinkDialog;
+import io.binarycodes.harbor.library.ui.presenter.LibraryFilter;
+import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 
 @SpringBootTest
 @ContextConfiguration(classes = { StubMetadataConfiguration.class, BrowserlessStorageConfiguration.class })
@@ -43,25 +43,25 @@ import io.binarycodes.harbor.library.ui.component.SaveLinkDialog;
 class LibraryViewTest extends SpringBrowserlessTest {
 
     /**
-     * The library and the filter are session-scoped, and the session only exists
+     * The presenter and the filter are session-scoped, and the session only exists
      * once the base class has built it — later than field injection would run. They
      * are looked up per test instead.
      */
     @Autowired
     private ApplicationContext applicationContext;
 
-    private BookmarkService bookmarkService;
+    private LibraryPresenter presenter;
     private LibraryFilter libraryFilter;
 
     @BeforeEach
     void startFromAnEmptyLibrary() {
-        bookmarkService = applicationContext.getBean(BookmarkService.class);
+        presenter = applicationContext.getBean(LibraryPresenter.class);
         libraryFilter = applicationContext.getBean(LibraryFilter.class);
-        bookmarkService.load();
+        presenter.load();
         // The stub storage is a singleton, so what one test saved is still there for
         // the next one. Each test starts from the empty library a first visit sees.
-        bookmarkService.find(LibraryQuery.of(LibraryScope.ALL))
-                .forEach(bookmark -> bookmarkService.remove(bookmark.id()));
+        presenter.find(LibraryQuery.of(LibraryScope.ALL))
+                .forEach(bookmark -> presenter.remove(bookmark.id()));
         libraryFilter.clearTags();
         libraryFilter.setSearchText("");
     }
@@ -114,7 +114,7 @@ class LibraryViewTest extends SpringBrowserlessTest {
     void separatesReadLater() {
         save("https://example.com/one", "One");
         String queued = save("https://example.com/two", "Two");
-        bookmarkService.toggleReadLater(queued);
+        presenter.toggleReadLater(queued);
 
         navigate(ReadLaterView.class);
 
@@ -125,13 +125,13 @@ class LibraryViewTest extends SpringBrowserlessTest {
     @DisplayName("survives a return visit, notes and highlights included")
     void restoresAcrossVisits() {
         String id = save("https://example.com/one", "One");
-        bookmarkService.updateNotes(id, "worth remembering");
-        bookmarkService.addHighlight(id, "a passage worth keeping");
+        presenter.updateNotes(id, "worth remembering");
+        presenter.addHighlight(id, "a passage worth keeping");
 
         navigate(LibraryView.class);
 
-        assertTrue(bookmarkService.findById(id).orElseThrow().hasNotes());
-        assertFalse(bookmarkService.withHighlights().isEmpty());
+        assertTrue(presenter.findById(id).orElseThrow().hasNotes());
+        assertFalse(presenter.withHighlights().isEmpty());
         assertEquals(1, cards().size());
     }
 
@@ -144,7 +144,7 @@ class LibraryViewTest extends SpringBrowserlessTest {
         deleteButtons().getFirst().click();
         find(DeleteBookmarkDialog.class).single().close();
 
-        assertTrue(bookmarkService.findById(id).isPresent());
+        assertTrue(presenter.findById(id).isPresent());
         assertEquals(1, rows().size());
     }
 
@@ -163,7 +163,7 @@ class LibraryViewTest extends SpringBrowserlessTest {
         confirmDeletion();
 
         long surviving = List.of(first, second).stream()
-                .filter(id -> bookmarkService.findById(id).isPresent())
+                .filter(id -> presenter.findById(id).isPresent())
                 .count();
         assertEquals(1, surviving);
         assertEquals(1, rows().size());
@@ -173,15 +173,15 @@ class LibraryViewTest extends SpringBrowserlessTest {
     @DisplayName("takes the notes and highlights with it")
     void deletesWhatTheReaderAdded() {
         String id = save("https://example.com/one", "One");
-        bookmarkService.updateNotes(id, "worth remembering");
-        bookmarkService.addHighlight(id, "a passage worth keeping");
+        presenter.updateNotes(id, "worth remembering");
+        presenter.addHighlight(id, "a passage worth keeping");
         showRows();
 
         deleteButtons().getFirst().click();
         confirmDeletion();
 
-        assertTrue(bookmarkService.withHighlights().isEmpty());
-        assertEquals(0, bookmarkService.count());
+        assertTrue(presenter.withHighlights().isEmpty());
+        assertEquals(0, presenter.count());
     }
 
     /**
@@ -202,7 +202,7 @@ class LibraryViewTest extends SpringBrowserlessTest {
         awaitSubmitEnabled(dialog);
 
         assertTrue(submitButton(dialog).isEnabled());
-        assertEquals(0, bookmarkService.count());
+        assertEquals(0, presenter.count());
     }
 
     private Button submitButton(SaveLinkDialog dialog) {
@@ -225,8 +225,8 @@ class LibraryViewTest extends SpringBrowserlessTest {
     @DisplayName("edits a bookmark in place, keeping its notes and highlights")
     void editsABookmarkInPlace() {
         String id = save("https://example.com/one", "One");
-        bookmarkService.updateNotes(id, "worth remembering");
-        bookmarkService.addHighlight(id, "a passage worth keeping");
+        presenter.updateNotes(id, "worth remembering");
+        presenter.addHighlight(id, "a passage worth keeping");
         showRows();
 
         findInView(EditBookmarkButton.class).all().getFirst().click();
@@ -234,11 +234,11 @@ class LibraryViewTest extends SpringBrowserlessTest {
         find(TextField.class, dialog).withLabel("Title").single().setValue("One, corrected");
         find(Button.class, dialog).withCaption("Save changes").single().click();
 
-        Bookmark edited = bookmarkService.findById(id).orElseThrow();
+        Bookmark edited = presenter.findById(id).orElseThrow();
         assertEquals("One, corrected", edited.title());
         assertEquals("worth remembering", edited.notes());
         assertEquals(1, edited.highlights().size());
-        assertEquals(1, bookmarkService.count());
+        assertEquals(1, presenter.count());
     }
 
     /**
@@ -288,6 +288,6 @@ class LibraryViewTest extends SpringBrowserlessTest {
         draft.setReadingMinutes(7);
         draft.setContent("## Body\n\nSome words.");
         draft.setTags(tags);
-        return bookmarkService.add(draft).id();
+        return presenter.add(draft).id();
     }
 }

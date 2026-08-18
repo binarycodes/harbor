@@ -1,8 +1,6 @@
 package io.binarycodes.harbor.library.ui.component;
 
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CompletionException;
 import java.util.function.Consumer;
 
 import com.vaadin.flow.component.UI;
@@ -24,10 +22,9 @@ import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.BookmarkType;
 import io.binarycodes.harbor.library.domain.LinkDraft;
 import io.binarycodes.harbor.library.service.AddressNotAllowedException;
-import io.binarycodes.harbor.library.service.BookmarkService;
 import io.binarycodes.harbor.library.service.DuplicateBookmarkException;
 import io.binarycodes.harbor.library.service.LinkMetadata;
-import io.binarycodes.harbor.library.service.MetadataResolver;
+import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 
 /**
  * Saving a link: paste a URL, let Harbor read the page, correct anything it got
@@ -40,8 +37,7 @@ import io.binarycodes.harbor.library.service.MetadataResolver;
  */
 public class SaveLinkDialog extends Dialog {
 
-    private final BookmarkService bookmarkService;
-    private final MetadataResolver metadataResolver;
+    private final LibraryPresenter presenter;
     private final Consumer<Bookmark> onSaved;
 
     private final Binder<LinkDraft> binder = new Binder<>(LinkDraft.class);
@@ -70,10 +66,8 @@ public class SaveLinkDialog extends Dialog {
      */
     private String editingId;
 
-    public SaveLinkDialog(BookmarkService bookmarkService, MetadataResolver metadataResolver,
-            Consumer<Bookmark> onSaved) {
-        this.bookmarkService = bookmarkService;
-        this.metadataResolver = metadataResolver;
+    public SaveLinkDialog(LibraryPresenter presenter, Consumer<Bookmark> onSaved) {
+        this.presenter = presenter;
         this.onSaved = onSaved;
 
         addClassName("save-link-dialog");
@@ -285,12 +279,12 @@ public class SaveLinkDialog extends Dialog {
     private void commit() {
         try {
             if (editingId != null) {
-                bookmarkService.update(editingId, draft);
+                presenter.update(editingId, draft);
                 close();
-                bookmarkService.findById(editingId).ifPresent(onSaved);
+                presenter.findById(editingId).ifPresent(onSaved);
                 return;
             }
-            Bookmark saved = bookmarkService.add(draft);
+            Bookmark saved = presenter.add(draft);
             close();
             onSaved.accept(saved);
         } catch (DuplicateBookmarkException alreadySaved) {
@@ -308,23 +302,22 @@ public class SaveLinkDialog extends Dialog {
     }
 
     /**
-     * Runs the resolver away from the UI thread and hands the result back through
-     * the session lock. Push is enabled for exactly this.
+     * The read itself belongs to the presenter — waiting on a stranger's web server
+     * and coming back through the session lock is orchestration, not something a
+     * form should be doing. What is left here is the spinner either outcome clears.
      */
     private void resolveInBackground(Consumer<LinkMetadata> onResolved) {
         UI ui = getUI().orElseThrow(() -> new IllegalStateException("The dialog is not attached"));
-        String requested = draft.getUrl();
         setFetching(true);
-        CompletableFuture
-                .supplyAsync(() -> metadataResolver.resolve(requested))
-                .whenComplete((metadata, failure) -> ui.access(() -> {
+        presenter.resolve(ui, draft.getUrl(),
+                metadata -> {
                     setFetching(false);
-                    if (metadata != null) {
-                        onResolved.accept(metadata);
-                        return;
-                    }
+                    onResolved.accept(metadata);
+                },
+                failure -> {
+                    setFetching(false);
                     reportFailure(failure);
-                }));
+                });
     }
 
     /**
@@ -339,8 +332,7 @@ public class SaveLinkDialog extends Dialog {
      * detail goes to the log, where the operator will look.
      */
     private void reportFailure(Throwable failure) {
-        Throwable cause = failure instanceof CompletionException ? failure.getCause() : failure;
-        if (cause instanceof AddressNotAllowedException) {
+        if (failure instanceof AddressNotAllowedException) {
             url.setErrorMessage(getTranslation("save.url.blocked"));
             url.setInvalid(true);
         }

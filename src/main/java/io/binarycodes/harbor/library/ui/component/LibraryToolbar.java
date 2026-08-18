@@ -19,7 +19,7 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 
 import io.binarycodes.harbor.library.domain.SortMode;
 import io.binarycodes.harbor.library.domain.ViewMode;
-import io.binarycodes.harbor.library.service.LibraryFilter;
+import io.binarycodes.harbor.library.ui.presenter.LibraryFilter;
 
 /**
  * The header of a library listing: what you are looking at, how many there are,
