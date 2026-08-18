@@ -1,6 +1,11 @@
 ARG JAVA_VERSION="21"
 
-FROM maven:3.9-eclipse-temurin-${JAVA_VERSION} AS build
+# Pinned to the builder's own architecture: the jar is Java bytecode and the same
+# for every target, so without this a multi-arch build compiles it once per
+# platform and does the arm64 pass under QEMU emulation for no gain. Only the
+# runtime layers below need to be per-architecture. Requires BuildKit, which both
+# `docker buildx bake` and a modern `docker build` use.
+FROM --platform=$BUILDPLATFORM maven:3.9-eclipse-temurin-${JAVA_VERSION} AS build
 # .git is excluded from the build context (.dockerignore), so the deployed commit
 # can't be read here — the caller passes it in (CI uses github.sha).
 ARG GIT_SHA
