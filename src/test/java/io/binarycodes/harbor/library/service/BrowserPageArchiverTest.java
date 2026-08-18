@@ -5,7 +5,6 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
-import java.net.InetAddress;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
@@ -44,7 +43,11 @@ class BrowserPageArchiverTest {
 
     @BeforeEach
     void startServer() throws IOException {
-        server = HttpServer.create(new InetSocketAddress(InetAddress.getLoopbackAddress(), 0), 0);
+        // Bound to every interface on a fixed port, not loopback on an ephemeral one: a
+        // browser in a container reaches this host from outside, so loopback-only would
+        // refuse it even with the port bridged.
+        server = HttpServer.create(
+                new InetSocketAddress(ArchivingBrowser.fixturePort()), 0);
         server.createContext("/plain", exchange -> respond(exchange, """
                 <html><head><title>Plain</title></head>
                 <body><h1>A plain page</h1><p>%s</p></body></html>""".formatted(prose())));
@@ -79,6 +82,8 @@ class BrowserPageArchiverTest {
 
     @AfterEach
     void stopServer() {
+        // The port is fixed for the run, so it has to be actually free before the next
+        // test binds it again.
         server.stop(0);
     }
 
@@ -187,7 +192,7 @@ class BrowserPageArchiverTest {
     }
 
     private String url(String path) {
-        return "http://" + ArchivingBrowser.hostAddress(server.getAddress().getPort()) + path;
+        return "http://" + ArchivingBrowser.fixtureAddress() + path;
     }
 
     /**
