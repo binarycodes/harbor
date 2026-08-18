@@ -1,6 +1,11 @@
 # 005 — PDF rendering runs inside the save and slows it down
 
-**Status:** Open. Ship synchronous, measure, then decide.
+**Status:** Open, and considerably more pressing than when this was written.
+
+Rendering is a headless browser now, not OpenHTMLtoPDF: seconds rather than
+milliseconds. And archiving joined the save gate, so that wait is no longer
+background work the reader can ignore — they cannot save until it finishes. The
+argument below was written when a slow archive cost patience; it now costs the save.
 
 ## Context
 

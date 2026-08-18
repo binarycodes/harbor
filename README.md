@@ -21,12 +21,16 @@ Markdown as you type.
 | Reader | The article text on its own, with notes and highlights beside it |
 | Save a link | Paste a URL; Harbor reads the page for the title, description, kind and body, and archives it as a PDF |
 
-**Every saved page is also archived as a PDF.** Harbor renders the article — with
-its pictures, which the reader's text does not keep — at the moment it fetches the
-page, and stores it alongside the bookmark. The reader offers it as *Archived PDF*.
-Images that are deferred behind `data-src` or `srcset` are resolved, and anything
-that cannot be fetched or embedded is left out rather than failing the save. The
-text is currently Latin-only: see [`docs/issues/007`](docs/issues/007-archive-font-coverage.md).
+**Every saved page is archived as a PDF, and a page that cannot be archived is not
+saved.** Harbor hands the URL to a headless Chromium, which loads the page for
+itself — running its scripts, applying its real stylesheets, loading its web fonts —
+and prints it. So the archive looks like the page a reader saw, with its pictures
+and its layout, and the text in it stays selectable and searchable. The reader
+offers it as *View PDF*, which opens in a new tab.
+
+That browser is a **required** second service, and Harbor will not start without
+`HARBOR_BROWSER_URL` pointing at one. Archiving is the point of a library like this:
+a bookmark with no copy of its page is a link that will rot.
 
 Search covers everything at once — titles, descriptions, sites, tags, your notes,
 the article body, and your highlights. Sort by recency, title, or reading time.
@@ -77,11 +81,23 @@ services:
       - HARBOR_DB_URL=jdbc:postgresql://postgres:5432/harbor
       - HARBOR_DB_USER=harbor
       - HARBOR_DB_PASSWORD=change-me
+      - HARBOR_BROWSER_URL=http://chromium:9222
       # Only if you need Harbor to reach private addresses; see below.
       # - HARBOR_ALLOWED_RANGES=192.168.1.50/32
     depends_on:
       postgres:
         condition: service_healthy
+      chromium:
+        condition: service_started
+    restart: unless-stopped
+
+  # Build this from environment/chromium in the repository; there is no published
+  # image for it. Chromium needs more than the default 64 MB of /dev/shm, and wants
+  # a ceiling of its own.
+  chromium:
+    build: https://github.com/binarycodes/harbor.git#main:environment/chromium
+    shm_size: 512m
+    mem_limit: 1g
     restart: unless-stopped
 
   postgres:
@@ -185,19 +201,27 @@ Worth being clear about what this does and does not do: Harbor has no accounts, 
 anyone who can reach the app can use the save box. The guard bounds *where* that
 reaches; it does not authenticate anyone.
 
+**It also does not bound the archiving browser.** Chromium does its own DNS and its
+own connections, so `HARBOR_ALLOWED_RANGES` and the refused ranges above say nothing
+about it — and they cannot, because a page it renders can ask for any address, at any
+depth, long after Harbor has stopped looking. Deciding what that container may reach
+is a network design decision, not an application setting. If internal hosts are
+reachable from it, they are reachable by any page you archive.
+
 ---
 
 ## Develop locally
 
-Requirements: **JDK 21**, and a container runtime — the development database runs
-in one, and the tests start their own throwaway PostgreSQL. Every task goes
+Requirements: **JDK 21**, and a container runtime — the development database and the
+archiving browser both run in one, and the tests start their own throwaway
+PostgreSQL. Every task goes
 through `./run.sh`, which pins JDK 21
 (from SDKMAN if present, otherwise your `JAVA_HOME`) — a bare `mvn` under a newer
 JDK makes Lombok fail in confusing ways. Run `./run.sh` with no arguments to list
 the tasks.
 
 ```bash
-./run.sh db up
+./run.sh db up && ./run.sh browser up
 ```
 
 ```bash

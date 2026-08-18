@@ -1,6 +1,15 @@
 # 007 — The archive has no glyphs beyond Latin
 
-**Status:** Open.
+**Status:** Resolved — the archiving browser carries the fonts.
+
+`environment/chromium/Dockerfile` installs `fonts-noto-cjk` and
+`fonts-noto-color-emoji` alongside `fonts-liberation`, and Chromium picks a face per
+script the way any browser does. The base-14 limitation below belonged to
+OpenHTMLtoPDF, which no longer renders anything.
+
+The warning it ends on still stands for whoever builds a sidecar of their own: drop
+the font packages and archives lose their glyphs silently, with a PDF of the right
+size and the wrong content.
 
 ## Context
 

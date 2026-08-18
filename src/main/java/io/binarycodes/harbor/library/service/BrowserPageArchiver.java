@@ -74,10 +74,19 @@ class BrowserPageArchiver implements ArticleArchiver {
             LOGGER.warn("Could not archive {}: {}", url, wontRender.getMessage());
             return Optional.empty();
         } catch (Exception unreachable) {
-            LOGGER.warn("Could not reach the archiving browser for {}: {}", url,
-                    unreachable.getMessage());
+            // The message is often null on a connection failure, so the type is what
+            // says whether the browser is down or something else went wrong.
+            LOGGER.warn("Could not reach the archiving browser at {} for {}: {}",
+                    properties.browserUrl(), url, describe(unreachable));
             return Optional.empty();
         }
+    }
+
+    private static String describe(Exception failure) {
+        String message = failure.getMessage();
+        return message == null || message.isBlank()
+                ? failure.getClass().getSimpleName()
+                : message;
     }
 
     /**

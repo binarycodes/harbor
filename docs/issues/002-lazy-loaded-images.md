@@ -1,6 +1,12 @@
 # 002 — Lazy-loaded images defeat the PDF archive
 
-**Status:** Done — `ArticleImageSource`, with the fixture cases below as tests.
+**Status:** Superseded — the renderer that needed this is gone.
+
+Harbor now archives with a headless Chromium, which runs the page's own scripts and
+so resolves deferred images itself. `ArticleImageSource` and its fifteen tests were
+deleted with the OpenHTMLtoPDF path. The analysis below is kept because it explains
+why chasing the attributes by hand was never going to be enough, which is part of
+why the browser won.
 
 ## Context
 

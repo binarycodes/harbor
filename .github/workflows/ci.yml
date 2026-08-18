@@ -29,8 +29,23 @@ jobs:
           java-version: '21'
           cache: maven
 
+      # Harbor archives with a real browser and will not save a page it cannot
+      # archive, so the suite needs one. Built from the repository rather than pulled,
+      # for the same reason the image is ours: the flags are visible here.
+      - name: build and start the archiving browser
+        run: |
+          docker build -t harbor-chromium:ci environment/chromium
+          docker run -d --name harbor-chromium -p 9222:9222 --shm-size=512m harbor-chromium:ci
+          for i in $(seq 1 30); do
+            if curl -fsS -o /dev/null http://127.0.0.1:9222/json/version; then break; fi
+            sleep 1
+          done
+          curl -fsS http://127.0.0.1:9222/json/version
+
       - name: maven verify
-        run: mvn --batch-mode --no-transfer-progress -Dbuild.commit=${{ github.sha }} clean verify
+        run: |
+          mvn --batch-mode --no-transfer-progress -Dbuild.commit=${{ github.sha }} \
+              -Dharbor.archive.browser-url=http://127.0.0.1:9222 clean verify
 
   docker:
     name: build and publish docker image

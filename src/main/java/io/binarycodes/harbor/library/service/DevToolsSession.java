@@ -31,7 +31,7 @@ final class DevToolsSession implements AutoCloseable {
     private final Map<Integer, CompletableFuture<String>> awaitingReply = new ConcurrentHashMap<>();
     private final Map<String, CompletableFuture<String>> awaitingEvent = new ConcurrentHashMap<>();
 
-    private DevToolsSession(WebSocket socket) {
+    DevToolsSession(WebSocket socket) {
         this.socket = socket;
     }
 
@@ -96,7 +96,7 @@ final class DevToolsSession implements AutoCloseable {
         }
     }
 
-    private void deliver(String frame) {
+    void deliver(String frame) {
         DevToolsProtocol.replyId(frame)
                 .map(awaitingReply::get)
                 .ifPresent(waiting -> waiting.complete(frame));

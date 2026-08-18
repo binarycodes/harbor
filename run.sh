@@ -99,12 +99,28 @@ compose() {
 task_db() {
     local action="${1:-up}"
     case "${action}" in
-        up)    compose up -d && echo "Postgres is up on 5432 (harbor/harbor)." ;;
-        down)  compose down && echo "Postgres stopped; its data is kept." ;;
-        logs)  compose logs -f ;;
+        up)    compose up -d postgres && echo "Postgres is up on 5432 (harbor/harbor)." ;;
+        down)  compose stop postgres && echo "Postgres stopped; its data is kept." ;;
+        logs)  compose logs -f postgres ;;
         reset) compose down -v && echo "Postgres stopped and its data thrown away." ;;
         *)
             echo "Unknown db action: ${action} (expected up, down, logs or reset)" >&2
+            exit 1
+            ;;
+    esac
+}
+
+# The browser that renders the archive. Harbor will not save a page it cannot
+# archive, so without this running nothing can be filed.
+task_browser() {
+    local action="${1:-up}"
+    case "${action}" in
+        up)    compose up -d --build chromium \
+                   && echo "Chromium is up on 9222; set HARBOR_BROWSER_URL=http://localhost:9222." ;;
+        down)  compose stop chromium && echo "Chromium stopped." ;;
+        logs)  compose logs -f chromium ;;
+        *)
+            echo "Unknown browser action: ${action} (expected up, down or logs)" >&2
             exit 1
             ;;
     esac
@@ -168,6 +184,7 @@ Usage: ./run.sh <task>
 
 Tasks:
   db [act]   Development Postgres: up (default), down, logs, reset
+  browser    Archiving browser: up (default), down, logs
   deps       Download newly added dependencies (every other task builds offline)
   compile    Compile sources (triggers a devtools hot-restart of a running app)
   bundle     Clear cached frontend bundles + touch styles.css + recompile

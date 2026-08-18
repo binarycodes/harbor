@@ -32,7 +32,7 @@ import com.sun.net.httpserver.HttpServer;
  */
 @EnabledIfSystemProperty(named = "harbor.archive.browser-url", matches = ".+")
 @DisplayName("Archiving a page with the browser")
-class BrowserPageArchiverIT {
+class BrowserPageArchiverTest {
 
     private static final byte[] PDF_MAGIC = "%PDF-".getBytes(StandardCharsets.UTF_8);
 

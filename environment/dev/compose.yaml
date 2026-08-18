@@ -26,5 +26,24 @@ services:
       retries: 10
     restart: unless-stopped
 
+  # Harbor archives every page it saves and refuses to save one it cannot archive,
+  # so this is not optional in development either.
+  chromium:
+    build: ../chromium
+    container_name: harbor-dev-chromium
+    ports:
+      - "9222:9222"
+    # A browser rendering pages from the open web wants a hard ceiling: Chromium
+    # treats /dev/shm as its scratch space and the default 64 MB is too little,
+    # while an unbounded browser can take the whole machine.
+    shm_size: 512m
+    mem_limit: 1g
+    healthcheck:
+      test: ["CMD-SHELL", "timeout 2 bash -c '</dev/tcp/127.0.0.1/9222' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
 volumes:
   harbor-dev-data:
