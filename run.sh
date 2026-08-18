@@ -120,7 +120,7 @@ task_deps() {
 task_test() {
     resolve_java_home
     # JaCoCo enforces an 80% line-coverage gate on the */service packages.
-    run_mvn -o test
+    run_mvn -o test "$@"
 }
 
 task_run() {
@@ -147,7 +147,7 @@ task_preview() {
 task_verify() {
     resolve_java_home
     clear_bundles
-    run_mvn clean verify -Pit
+    run_mvn clean verify -Pit "$@"
 }
 
 # Full production build.
@@ -191,8 +191,8 @@ main() {
         styles)  task_styles ;;
         db)      task_db "${2:-up}" ;;
         deps)    task_deps ;;
-        test)    task_test ;;
-        verify)  task_verify ;;
+        test)    task_test "${@:2}" ;;
+        verify)  task_verify "${@:2}" ;;
         run)     task_run ;;
         preview) task_preview ;;
         package) task_package ;;
