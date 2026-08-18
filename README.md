@@ -84,7 +84,7 @@ services:
       - POSTGRES_USER=harbor
       - POSTGRES_PASSWORD=change-me
     volumes:
-      - harbor-data:/var/lib/postgresql/data
+      - harbor-data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U harbor -d harbor"]
       interval: 5s

@@ -16,7 +16,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - harbor-dev-data:/var/lib/postgresql/data
+      - harbor-dev-data:/var/lib/postgresql
     # The app starts fast enough to beat Postgres to it, and Flyway's first
     # migration is what pays for that with a confusing connection error.
     healthcheck:
