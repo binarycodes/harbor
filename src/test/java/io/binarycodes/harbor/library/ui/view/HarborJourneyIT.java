@@ -18,6 +18,7 @@ import org.vaadin.addons.dramafinder.AbstractBasePlaywrightIT;
 
 import com.microsoft.playwright.Locator;
 import com.microsoft.playwright.Page;
+import com.microsoft.playwright.TimeoutError;
 import com.microsoft.playwright.options.AriaRole;
 import org.vaadin.addons.dramafinder.element.TextAreaElement;
 import org.vaadin.addons.dramafinder.element.TextFieldElement;
@@ -49,6 +50,13 @@ import io.binarycodes.harbor.library.service.BookmarkService;
 @DisplayName("A reader using Harbor")
 @ActiveProfiles("journey")
 class HarborJourneyIT extends AbstractBasePlaywrightIT {
+
+    /**
+     * Long enough for a redirect to Keycloak, a form submission and a Vaadin page to
+     * follow one another on a cold JVM; short enough that a broken arrival is reported
+     * rather than waited out.
+     */
+    private static final double ARRIVAL_TIMEOUT_MILLIS = 20_000;
 
     @Autowired
     private BookmarkService bookmarkService;
@@ -366,22 +374,64 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
 
     /**
      * Keycloak's form, filled the way a reader fills it. Submitted with Enter rather
-     * than by clicking: the button's markup belongs to whichever login theme the
-     * version ships, and the form's behaviour does not.
+     * than by clicking: the button's markup belongs to whichever login theme the version
+     * ships, and the form's behaviour does not.
      *
-     * <p>Silent when there is no form, because the base class has already opened the
-     * page once and a session survives the second navigation.
+     * <p>Every step says what it was looking at when it gave up. An earlier version
+     * returned quietly when it could not find the form, on the theory that the session
+     * had survived — which turned any single arrival problem into thirteen journeys
+     * timing out on "Save a link" with nothing to say about why.
      */
     private void signIn() {
-        Locator username = page.locator("#username");
-        if (username.count() == 0) {
+        Locator loginForm = page.locator("#username");
+        awaitEither(loginForm, "neither Harbor nor a Keycloak login form");
+        if (loginForm.count() == 0) {
+            // Already signed in: the base class opened the page before this ran and the
+            // session outlived the second navigation.
             return;
         }
-        username.fill(HarborIdentity.USERNAME);
+        loginForm.fill(HarborIdentity.USERNAME);
         Locator password = page.locator("#password");
         password.fill(HarborIdentity.PASSWORD);
         password.press("Enter");
-        page.waitForURL(landed -> landed.startsWith(getUrl()));
+        awaitShell();
+    }
+
+    /**
+     * Waits for Harbor's drawer or the given alternative, whichever arrives.
+     */
+    private void awaitEither(Locator alternative, String describeFailure) {
+        try {
+            harborShell().or(alternative).first()
+                    .waitFor(new Locator.WaitForOptions().setTimeout(ARRIVAL_TIMEOUT_MILLIS));
+        } catch (TimeoutError gaveUp) {
+            throw new AssertionError(whereAmI("Arrived at " + describeFailure), gaveUp);
+        }
+    }
+
+    /**
+     * Harbor itself, rendered. Signing in successfully and then not landing here is the
+     * interesting failure: it means the credentials were accepted and something after
+     * that — navigation access control, most likely — refused the screen.
+     */
+    private void awaitShell() {
+        try {
+            harborShell().waitFor(new Locator.WaitForOptions().setTimeout(ARRIVAL_TIMEOUT_MILLIS));
+        } catch (TimeoutError neverRendered) {
+            throw new AssertionError(whereAmI("Signed in as " + HarborIdentity.USERNAME
+                    + ", but Harbor's drawer never rendered"), neverRendered);
+        }
+    }
+
+    /**
+     * The drawer, which every screen is wrapped in and which no other page has.
+     */
+    private Locator harborShell() {
+        return page.locator(".sidebar");
+    }
+
+    private String whereAmI(String what) {
+        return what + ". The browser was at " + page.url() + ", showing \"" + page.title() + "\".";
     }
 
     /**
