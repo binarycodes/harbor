@@ -7,9 +7,10 @@ import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Component;
 
 /**
- * The library belongs to whoever Keycloak says is reading it. The subject claim
- * rather than the username or the email: those are things a realm administrator can
- * change, and a library that follows a renamed account is not a library.
+ * The library belongs to whoever the identity provider says is reading it. The subject
+ * claim rather than the username or the email: those are things a provider's
+ * administrator can change, and a library that follows a renamed account is not a
+ * library.
  *
  * <p>Vaadin's own threads reach the context because
  * {@code VaadinAwareSecurityContextHolderStrategy} resolves it from the Vaadin

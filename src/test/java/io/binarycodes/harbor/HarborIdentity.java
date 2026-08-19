@@ -71,7 +71,7 @@ public final class HarborIdentity {
 
     /**
      * Where the realm's OIDC endpoints are, for
-     * {@code spring.security.oauth2.client.provider.keycloak.issuer-uri}.
+     * {@code spring.security.oauth2.client.provider.oidc.issuer-uri}.
      *
      * <p>A mapped port is right here and wrong in a deployment: under {@code start-dev}
      * Keycloak derives the issuer from the request host, and both the test JVM and

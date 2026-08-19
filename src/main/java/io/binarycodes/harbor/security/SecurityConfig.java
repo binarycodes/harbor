@@ -22,8 +22,11 @@ import com.vaadin.flow.spring.security.VaadinSecurityConfigurer;
  * their own.
  *
  * <p>There is no Harbor login view: an unauthenticated request redirects straight to
- * Keycloak. A local form would only collect credentials Harbor has no business
- * seeing, and the identity provider is the thing that knows how to ask.
+ * the identity provider. A local form would only collect credentials Harbor has no
+ * business seeing, and the provider is the thing that knows how to ask.
+ *
+ * <p>Which provider is a deployment's choice and appears nowhere in this class. Harbor
+ * is an OpenID Connect client and needs no more than that.
  *
  * <p>Nothing here grants access on its own. A route without an access annotation is
  * denied by navigation access control, and ownership is enforced a layer down, in
@@ -34,11 +37,16 @@ import com.vaadin.flow.spring.security.VaadinSecurityConfigurer;
 public class SecurityConfig {
 
     /**
-     * The registration id, which has to agree with
-     * {@code spring.security.oauth2.client.registration.keycloak.*} in
-     * {@code application.properties} — Spring builds this path from that key.
+     * Where an unauthenticated request is sent. The last segment is the registration id,
+     * so this has to agree with
+     * {@code spring.security.oauth2.client.registration.oidc.*} in
+     * {@code application.properties} — Spring builds both this path and the
+     * {@code /login/oauth2/code/oidc} callback from that one key.
+     *
+     * <p>{@code oidc} names the protocol rather than a product, because a deployment's
+     * choice of provider should not end up in Harbor's URLs.
      */
-    private static final String KEYCLOAK_AUTHORIZATION_PATH = "/oauth2/authorization/keycloak";
+    private static final String AUTHORIZATION_PATH = "/oauth2/authorization/oidc";
 
     /**
      * A year, the shortest max-age browsers accept for HSTS preloading.
@@ -58,7 +66,7 @@ public class SecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http,
             LogoutSuccessHandler oidcLogoutSuccessHandler) throws Exception {
         return http.with(VaadinSecurityConfigurer.vaadin(), vaadin -> vaadin
-                        .oauth2LoginPage(KEYCLOAK_AUTHORIZATION_PATH)
+                        .oauth2LoginPage(AUTHORIZATION_PATH)
                         .logoutSuccessHandler(oidcLogoutSuccessHandler))
                 .headers(headers -> {
                     headers.referrerPolicy(referrer -> referrer
@@ -86,10 +94,13 @@ public class SecurityConfig {
     }
 
     /**
-     * Signing out of Harbor has to sign the reader out of Keycloak too. Dropping only
-     * the local session leaves the identity provider's intact, so the redirect back
-     * comes straight through it and signs in again — which reads as a dead button
-     * rather than a session that outlived the click.
+     * Signing out of Harbor has to sign the reader out of the identity provider too.
+     * Dropping only the local session leaves the provider's intact, so the redirect back
+     * comes straight through it and signs in again — which reads as a dead button rather
+     * than a session that outlived the click.
+     *
+     * <p>RP-initiated logout is part of OpenID Connect, so this asks nothing of a
+     * provider that a Harbor deployment could not expect from any of them.
      */
     @Bean
     public LogoutSuccessHandler oidcLogoutSuccessHandler(ClientRegistrationRepository clientRegistrations) {

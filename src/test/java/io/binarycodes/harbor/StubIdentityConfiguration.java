@@ -32,7 +32,7 @@ public class StubIdentityConfiguration {
     public static final String READER = "reader-11111111-1111-1111-1111-111111111111";
     public static final String OTHER_READER = "reader-22222222-2222-2222-2222-222222222222";
 
-    private static final String CLIENT_REGISTRATION_ID = "keycloak";
+    private static final String CLIENT_REGISTRATION_ID = "oidc";
     private static final String AUTHORITY = "OIDC_USER";
 
     /**

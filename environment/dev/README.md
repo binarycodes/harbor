@@ -61,8 +61,8 @@ nothing in this directory.
 
 The client accepts `*` as its redirect URI. A realm's redirect URIs are not Harbor's
 to get right — a deployment adds Harbor's exact callback
-(`https://your-harbor/login/oauth2/code/keycloak`, where `keycloak` is Spring's
-registration id rather than the realm or the client) to a realm it already runs, very
+(`https://your-harbor/login/oauth2/code/oidc`, where `oidc` is Harbor's registration id
+rather than the realm or the client) to a provider it already runs, very
 likely alongside other applications. What this realm exists to prove is that Harbor
 speaks OIDC, so it accepts whatever port a laptop or a test happens to be on.
 

@@ -68,14 +68,14 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
      */
     @DynamicPropertySource
     static void pointAtTheContainerisedKeycloak(DynamicPropertyRegistry registry) {
-        registry.add("spring.security.oauth2.client.provider.keycloak.issuer-uri",
+        registry.add("spring.security.oauth2.client.provider.oidc.issuer-uri",
                 HarborIdentity::issuerUri);
         // The client too, not just the issuer. application.properties defaults these to
         // the development realm's, and the client this fixture registered in its own
         // Keycloak is not that one — presenting the wrong secret fails as invalid_client.
-        registry.add("spring.security.oauth2.client.registration.keycloak.client-id",
+        registry.add("spring.security.oauth2.client.registration.oidc.client-id",
                 () -> HarborIdentity.CLIENT_ID);
-        registry.add("spring.security.oauth2.client.registration.keycloak.client-secret",
+        registry.add("spring.security.oauth2.client.registration.oidc.client-secret",
                 () -> HarborIdentity.CLIENT_SECRET);
     }
 

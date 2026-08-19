@@ -43,8 +43,9 @@ are upgrading, Harbor takes that library in the first time you open it and tells
 you how many bookmarks it brought over. The only thing still kept in the browser
 is whether you prefer light or dark.
 
-**Every library belongs to one reader.** Harbor authenticates against Keycloak, and
-login is mandatory on every screen — there is no way to reach a bookmark, a note, a
+**Every library belongs to one reader.** Harbor authenticates against any OpenID
+Connect provider — Keycloak, Authentik, Dex, Entra ID, Auth0, whatever you already run —
+and login is mandatory on every screen — there is no way to reach a bookmark, a note, a
 highlight or an archived PDF without signing in first, and what you see is only ever
 your own. That makes an identity provider a required third service alongside the
 database and the browser; see *Authentication* below.
@@ -116,7 +117,7 @@ services:
 
   # Your realm, your client, your users. Nothing here is imported for you: create the
   # realm and a confidential client called `harbor` in the admin console, and give the
-  # client the exact redirect URI https://harbor.example.com/login/oauth2/code/keycloak.
+  # client the exact redirect URI https://harbor.example.com/login/oauth2/code/oidc.
   #
   # KC_HOSTNAME is not decoration. Keycloak stamps it into the issuer claim of every
   # token, and Harbor rejects a token whose issuer is not the one it was configured
@@ -328,9 +329,14 @@ rather than automatic.
 ### Authentication
 
 Harbor is an OIDC client and nothing else. It has no login form, no user table and no
-password of its own: an unauthenticated request is redirected to Keycloak, and what
+password of its own: an unauthenticated request is redirected to your provider, and what
 comes back is a token whose `sub` claim becomes the owner of every row that reader
-writes. Signing out signs you out of Keycloak too, so the next visit asks again.
+writes. Signing out signs you out of the provider too, so the next visit asks again.
+
+Nothing in Harbor names a particular product. It needs discovery, the authorization-code
+flow, an id token and RP-initiated logout — all of them plain OpenID Connect. The
+examples below use Keycloak because that is what the development stack ships; if you
+already run something else, point Harbor at it and skip that container.
 
 Three settings, and the app fetches the issuer's discovery document at startup — so a
 Keycloak that is down or misconfigured is an application that refuses to start rather
@@ -338,12 +344,12 @@ than one that boots into a broken login:
 
 | | |
 |---|---|
-| `HARBOR_OIDC_ISSUER_URI` | `https://your-keycloak/realms/harbor` |
+| `HARBOR_OIDC_ISSUER_URI` | the issuer, e.g. `https://your-provider/realms/harbor` for Keycloak |
 | `HARBOR_OIDC_CLIENT_ID` | the client id, `harbor` by default |
 | `HARBOR_OIDC_CLIENT_SECRET` | the client's secret — it is a confidential client |
 
 In Keycloak: a realm, a client with **standard flow** on and **public client** off,
-and a redirect URI of exactly `https://your-harbor/login/oauth2/code/keycloak`. Add a
+and a redirect URI of exactly `https://your-harbor/login/oauth2/code/oidc`. Add a
 valid post-logout redirect URI of `https://your-harbor` while you are there, or
 signing out lands on a Keycloak error page. There are no roles to assign — every
 authenticated reader gets their own library and nothing else.
