@@ -25,6 +25,15 @@
         <playwright.version>1.59.0</playwright.version>
         <jacoco.version>0.8.13</jacoco.version>
         <headless>true</headless>
+        <!--
+            Surefire and failsafe read argLine, and JaCoCo's prepare-agent overwrites it
+            with the coverage agent. Both plugins therefore ask for it late, as
+            @{argLine}, so the coverage agent survives having the Mockito agent appended.
+            This empty default is what keeps that working when JaCoCo does not run
+            (-Djacoco.skip=true): with no property to resolve, @{argLine} would reach the
+            forked JVM literally and it would refuse to start.
+        -->
+        <argLine></argLine>
     </properties>
 
     <parent>
@@ -269,6 +278,20 @@
                 `git rev-parse HEAD`; the Docker build from the GIT_SHA arg; CI from
                 github.sha.
             -->
+            <!--
+                Exposes every resolved dependency's path as a property, which is the only
+                way to name the Mockito jar in an argLine without hard-coding a version.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-dependency-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <id>resolve-agent-paths</id>
+                        <goals><goal>properties</goal></goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-enforcer-plugin</artifactId>
@@ -359,10 +382,26 @@
                     </execution>
                 </executions>
             </plugin>
+            <!--
+                Mockito's inline mock maker attaches itself as an agent at runtime, which
+                the JDK is in the process of withdrawing; passing it as -javaagent is the
+                supported way. Nothing here mocks anything directly — Mockito arrives with
+                spring-boot-starter-test and the Spring test infrastructure initialises it
+                — so this exists to keep the build quiet on a future JDK rather than to
+                enable anything.
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-surefire-plugin</artifactId>
+                <configuration>
+                    <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
+                </configuration>
+            </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-failsafe-plugin</artifactId>
                 <configuration>
+                    <argLine>@{argLine} -javaagent:${org.mockito:mockito-core:jar}</argLine>
                     <systemPropertyVariables>
                         <headless>${headless}</headless>
                     </systemPropertyVariables>
