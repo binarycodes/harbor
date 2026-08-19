@@ -47,7 +47,7 @@ import io.binarycodes.harbor.library.service.BookmarkService;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ContextConfiguration(classes = { StubMetadataConfiguration.class, HarborDatabase.class })
 @DisplayName("A reader using Harbor")
-@ActiveProfiles("test")
+@ActiveProfiles("journey")
 class HarborJourneyIT extends AbstractBasePlaywrightIT {
 
     @Autowired
@@ -60,17 +60,11 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
      */
     @DynamicPropertySource
     static void pointAtTheContainerisedKeycloak(DynamicPropertyRegistry registry) {
-        // Back to the `keycloak` provider, which application-test.properties points away
-        // from so that no other tier does OIDC discovery. Without this the issuer below
-        // belongs to a provider nothing references, and the app talks to the unroutable
-        // endpoints the profile supplies instead.
-        registry.add("spring.security.oauth2.client.registration.keycloak.provider",
-                () -> "keycloak");
         registry.add("spring.security.oauth2.client.provider.keycloak.issuer-uri",
                 HarborIdentity::issuerUri);
-        // The client too, not just the issuer: the profile carries a placeholder secret
-        // for the tiers that never call Keycloak, and the app has to present the one this
-        // fixture actually registered or the token exchange fails as invalid_client.
+        // The client too, not just the issuer. application.properties defaults these to
+        // the development realm's, and the client this fixture registered in its own
+        // Keycloak is not that one — presenting the wrong secret fails as invalid_client.
         registry.add("spring.security.oauth2.client.registration.keycloak.client-id",
                 () -> HarborIdentity.CLIENT_ID);
         registry.add("spring.security.oauth2.client.registration.keycloak.client-secret",
