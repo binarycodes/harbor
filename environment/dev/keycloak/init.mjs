@@ -8,7 +8,8 @@
  * a documented API call.
  *
  * Idempotent, because `./run.sh env up` runs against a Keycloak that may already have
- * all of this: each step asks before it creates.
+ * all of this. Nothing prompts — there is nobody to answer inside a container. Each
+ * step GETs what it is about to create and returns early if it is already there.
  *
  * Every value here is a laptop's. The client secret is in version control and the
  * redirect URI accepts any localhost port, which is what lets the integration tests
@@ -25,10 +26,13 @@ const clientId = 'harbor';
 const clientSecret = 'harbor-dev-secret';
 
 /*
- * Pinned rather than generated, and load-bearing: this is the `sub` claim in every
- * token, so it is the owner_id of every row this reader writes. HarborIdentity in the
- * test suite needs it before anyone has logged in, to authenticate the thread that
- * empties the library between journeys — so that constant and this one have to agree.
+ * Pinned rather than generated, because this is the `sub` claim in every token and so
+ * the owner_id of every row this reader writes. Recreate Keycloak with a generated id
+ * and the reader comes back as somebody else, leaving the development library on disk
+ * and invisible. Pinning it means `docker rm harbor-dev-keycloak` costs nothing.
+ *
+ * Nothing outside this file depends on the value. The test suite runs its own Keycloak
+ * and chooses its own id.
  */
 const readerId = '9f6b6a1c-2d4e-4f80-9a3b-5c7d8e1f0a24';
 const readerUsername = 'reader';

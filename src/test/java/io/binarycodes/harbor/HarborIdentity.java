@@ -23,11 +23,15 @@ import tools.jackson.databind.json.JsonMapper;
  * it down at the end.
  *
  * <p>The realm is created afterwards over the admin REST API rather than imported from
- * an export at boot, which is what {@code environment/dev/keycloak/init.mjs} does for
- * the development stack. The same realm in two languages is a real cost: the constants
- * below and that script's have to agree, and nothing but this suite failing will say
- * so if they drift. It buys a mistake that arrives as an HTTP 400 naming the field
- * rather than as a container that will not boot.
+ * an export at boot: a wrong field then arrives as an HTTP 400 that names it, instead of
+ * as a container that refuses to start.
+ *
+ * <p>Everything the realm contains is defined here, and this fixture hands the client
+ * id and secret to Spring itself — so a journey depends on nothing outside its own
+ * containers. In particular it shares nothing with the development realm that
+ * {@code environment/dev/keycloak/init.mjs} builds. The two describe the same shape
+ * because Harbor needs that shape, not because either reads the other, and they are
+ * free to differ.
  */
 public final class HarborIdentity {
 
@@ -45,14 +49,20 @@ public final class HarborIdentity {
      * The reader's pinned id, which is the {@code sub} in every token this Keycloak
      * issues and therefore the {@code owner_id} of every row the journeys write. A test
      * that has to authenticate its own thread — the cleanup that empties the library
-     * between journeys — needs it before anyone has logged in.
-     *
-     * <p>Must match {@code readerId} in {@code environment/dev/keycloak/init.mjs}.
+     * between journeys — needs it before anyone has logged in, which is why this
+     * fixture chooses the id rather than letting Keycloak generate one.
      */
     public static final String SUBJECT = "9f6b6a1c-2d4e-4f80-9a3b-5c7d8e1f0a24";
 
-    private static final String CLIENT_ID = "harbor";
-    private static final String CLIENT_SECRET = "harbor-dev-secret";
+    /**
+     * The client this fixture registers, and the secret it registers with. Handed to
+     * Spring by {@code HarborJourneyIT} rather than read from a properties file, so the
+     * only agreement that has to hold is between this class and the Keycloak it started.
+     * Deliberately not the development realm's secret: nothing here should look like it
+     * has to match anything outside this container.
+     */
+    public static final String CLIENT_ID = "harbor";
+    public static final String CLIENT_SECRET = "journey-test-secret";
 
     private static final int HTTP_PORT = 8080;
 

@@ -33,8 +33,8 @@ clicking through the admin console.
 Not a realm export imported with `--import-realm`. An export has to be an exactly
 correct `RealmRepresentation` or the container refuses to boot, and it says so through
 a Jackson "unrecognized field" error that names nothing about Keycloak. A wrong field
-here is an HTTP 400 that names it instead. The script asks before it creates, so
-re-running `./run.sh env up` is safe.
+here is an HTTP 400 that names it instead. Each step looks up what it would create and
+skips it if it is already there, so re-running `./run.sh env up` is safe.
 
 Keycloak reports readiness on its management port, and the image carries no curl and no
 wget — so `keycloak/HealthCheck.java` is the probe, run straight from source by the
@@ -49,11 +49,15 @@ Keycloak binds long before it can answer.
 | Admin console | <http://localhost:8081>, `admin` / `admin` |
 
 The `reader` user's id is pinned in the script rather than generated. It is the `sub`
-in every token, so it is the `owner_id` of every row that user writes — and
-`HarborIdentity` in the test suite has to know it before anyone has logged in, to
-authenticate the thread that empties the library between journeys. That fixture builds
-the same realm in Java against the same API, so **its constants and this script's have
-to agree** — and nothing but the test suite failing will say so if they drift.
+in every token, so it is the `owner_id` of every row that user writes: recreate
+Keycloak with a generated id and the reader comes back as somebody else, with the old
+library still in Postgres and invisible to them. Pinning it makes throwing the Keycloak
+container away free.
+
+None of this reaches the test suite. `HarborJourneyIT` starts a Keycloak of its own
+through `HarborIdentity`, which builds its own realm and hands its own client id and
+secret to Spring — so a journey depends on nothing in this directory, and these values
+and that fixture's are free to differ.
 
 The client's redirect URI is `http://localhost:*/login/oauth2/code/keycloak`, where
 `keycloak` is Spring's registration id rather than the realm or the client. The

@@ -92,8 +92,8 @@ services:
   # than a realm export imported at boot: an export has to be an exactly correct
   # RealmRepresentation or the container refuses to start, and says so through a
   # Jackson field error that names nothing about Keycloak. Here a mistake is an HTTP
-  # 400 that names the field, and re-running is safe because the script asks before it
-  # creates.
+  # 400 that names the field. Re-running is safe: each step looks up what it would
+  # create and skips it if it is already there.
   keycloak-init:
     image: node:24-alpine
     container_name: harbor-dev-keycloak-init
