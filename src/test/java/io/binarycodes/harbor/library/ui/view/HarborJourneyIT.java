@@ -418,8 +418,9 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
         try {
             harborShell().waitFor(new Locator.WaitForOptions().setTimeout(ARRIVAL_TIMEOUT_MILLIS));
         } catch (TimeoutError neverRendered) {
-            throw new AssertionError(whereAmI("Signed in as " + HarborIdentity.USERNAME
-                    + ", but Harbor's drawer never rendered"), neverRendered);
+            throw new AssertionError(whereAmI("Submitted the login form as "
+                    + HarborIdentity.USERNAME + ", but Harbor's drawer never rendered"),
+                    neverRendered);
         }
     }
 

@@ -143,11 +143,16 @@ const createReader = async () => {
     await create(`${realmUrl}/users`, {
         id: readerId,
         username: readerUsername,
+        // A complete profile, deliberately. Keycloak's VERIFY_PROFILE action fires on
+        // login for a user missing a required attribute — firstName and lastName are
+        // required by the default user profile — and parks the browser on a "complete
+        // your account" form that reads like a login which did not take.
         firstName: 'Harbor',
         lastName: 'Reader',
         email: `${readerUsername}@harbor.invalid`,
         emailVerified: true,
         enabled: true,
+        requiredActions: [],
         credentials: [{ type: 'password', value: readerPassword, temporary: false }]
     }, `user '${readerUsername}' with the pinned id ${readerId}`);
 };

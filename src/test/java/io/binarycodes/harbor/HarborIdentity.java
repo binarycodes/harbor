@@ -130,13 +130,21 @@ public final class HarborIdentity {
                   "attributes": { "post.logout.redirect.uris": "*" }
                 }
                 """.formatted(CLIENT_ID, CLIENT_SECRET));
+        // A complete profile, and it has to be complete: Keycloak's VERIFY_PROFILE
+        // action fires on login for a user missing a required attribute, and holds the
+        // browser on a "complete your account" form that looks exactly like a login that
+        // did not take. firstName and lastName are required by the default user profile.
+        // requiredActions is empty for the same reason, stated rather than assumed.
         post(baseUrl + "/admin/realms/" + REALM + "/users", token, """
                 {
                   "id": "%s",
                   "username": "%s",
-                  "enabled": true,
-                  "emailVerified": true,
+                  "firstName": "Harbor",
+                  "lastName": "Reader",
                   "email": "%s@harbor.invalid",
+                  "emailVerified": true,
+                  "enabled": true,
+                  "requiredActions": [],
                   "credentials": [{ "type": "password", "value": "%s", "temporary": false }]
                 }
                 """.formatted(SUBJECT, USERNAME, USERNAME, PASSWORD));
