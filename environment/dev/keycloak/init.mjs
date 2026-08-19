@@ -25,15 +25,14 @@ const clientId = 'harbor';
 const clientSecret = 'harbor-dev-secret';
 
 /*
- * Pinned rather than generated, because this is the `sub` claim in every token and so
- * the owner_id of every row this reader writes. Recreate Keycloak with a generated id
- * and the reader comes back as somebody else, leaving the development library on disk
- * and invisible. Pinning it means `docker rm harbor-dev-keycloak` costs nothing.
+ * No id here, because the admin API will not take one: it assigns the user's id itself
+ * and ignores anything supplied on create. Keycloak's own realm *import* does honour a
+ * pinned id, which is the one thing the export approach could do that this cannot.
  *
- * Nothing outside this file depends on the value. The test suite runs its own Keycloak
- * and chooses its own id.
+ * The consequence worth knowing: that id is the `sub` in every token and so the owner of
+ * every row this reader writes, so throwing the Keycloak container away on its own
+ * orphans the development library. `./run.sh env reset` clears both together.
  */
-const readerId = '9f6b6a1c-2d4e-4f80-9a3b-5c7d8e1f0a24';
 const readerUsername = 'reader';
 const readerPassword = 'reader';
 
@@ -141,7 +140,6 @@ const createReader = async () => {
         return;
     }
     await create(`${realmUrl}/users`, {
-        id: readerId,
         username: readerUsername,
         // A complete profile, deliberately. Keycloak's VERIFY_PROFILE action fires on
         // login for a user missing a required attribute — firstName and lastName are
@@ -154,7 +152,7 @@ const createReader = async () => {
         enabled: true,
         requiredActions: [],
         credentials: [{ type: 'password', value: readerPassword, temporary: false }]
-    }, `user '${readerUsername}' with the pinned id ${readerId}`);
+    }, `user '${readerUsername}'`);
 };
 
 await createRealm();

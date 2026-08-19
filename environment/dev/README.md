@@ -48,16 +48,16 @@ Keycloak binds long before it can answer.
 | Reader | `reader` / `reader` |
 | Admin console | <http://localhost:8081>, `admin` / `admin` |
 
-The `reader` user's id is pinned in the script rather than generated. It is the `sub`
-in every token, so it is the `owner_id` of every row that user writes: recreate
-Keycloak with a generated id and the reader comes back as somebody else, with the old
-library still in Postgres and invisible to them. Pinning it makes throwing the Keycloak
-container away free.
+Keycloak assigns the `reader` user's id, and the admin API ignores one supplied on
+create — only a realm *import* can pin it. That id is the `sub` in every token, so it is
+the `owner_id` of every row the reader writes: **throwing away the Keycloak container on
+its own orphans the development library**, because the reader comes back as somebody
+else while the old rows stay in Postgres. `./run.sh env reset` clears both together.
 
 None of this reaches the test suite. `HarborJourneyIT` starts a Keycloak of its own
-through `HarborIdentity`, which builds its own realm and hands its own client id and
-secret to Spring — so a journey depends on nothing in this directory, and these values
-and that fixture's are free to differ.
+through `HarborIdentity`, which builds its own realm, hands its own client id and secret
+to Spring, and reads its reader's id back out of Keycloak — so a journey depends on
+nothing in this directory.
 
 The client accepts `*` as its redirect URI. A realm's redirect URIs are not Harbor's
 to get right — a deployment adds Harbor's exact callback

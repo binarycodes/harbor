@@ -11,6 +11,7 @@ import org.testcontainers.containers.GenericContainer;
 import org.testcontainers.containers.wait.strategy.Wait;
 import org.testcontainers.utility.DockerImageName;
 
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.json.JsonMapper;
 
 /**
@@ -45,14 +46,7 @@ public final class HarborIdentity {
     public static final String USERNAME = "reader";
     public static final String PASSWORD = "reader";
 
-    /**
-     * The reader's pinned id, which is the {@code sub} in every token this Keycloak
-     * issues and therefore the {@code owner_id} of every row the journeys write. A test
-     * that has to authenticate its own thread — the cleanup that empties the library
-     * between journeys — needs it before anyone has logged in, which is why this
-     * fixture chooses the id rather than letting Keycloak generate one.
-     */
-    public static final String SUBJECT = "9f6b6a1c-2d4e-4f80-9a3b-5c7d8e1f0a24";
+    private static String readerSubject;
 
     /**
      * The client this fixture registers, and the secret it registers with. Handed to
@@ -103,6 +97,19 @@ public final class HarborIdentity {
         return baseUrl() + "/realms/" + REALM;
     }
 
+    /**
+     * The reader's {@code sub}, which is the {@code owner_id} of every row the journeys
+     * write. Read back from Keycloak rather than chosen here: the admin API assigns the id
+     * itself and silently ignores one supplied on create, so a value picked in advance
+     * belongs to nobody. Authenticating the cleanup thread as that nobody emptied nothing,
+     * left every journey's bookmarks behind, and turned the second save of a URL into a
+     * duplicate — which surfaced as the reader screen never opening.
+     */
+    public static synchronized String subject() {
+        issuerUri();
+        return readerSubject;
+    }
+
     private static String baseUrl() {
         return "http://" + container.getHost() + ":" + container.getMappedPort(HTTP_PORT);
     }
@@ -137,7 +144,6 @@ public final class HarborIdentity {
         // requiredActions is empty for the same reason, stated rather than assumed.
         post(baseUrl + "/admin/realms/" + REALM + "/users", token, """
                 {
-                  "id": "%s",
                   "username": "%s",
                   "firstName": "Harbor",
                   "lastName": "Reader",
@@ -147,7 +153,23 @@ public final class HarborIdentity {
                   "requiredActions": [],
                   "credentials": [{ "type": "password", "value": "%s", "temporary": false }]
                 }
-                """.formatted(SUBJECT, USERNAME, USERNAME, PASSWORD));
+                """.formatted(USERNAME, USERNAME, PASSWORD));
+        readerSubject = lookUpReaderId(baseUrl, token);
+    }
+
+    private static String lookUpReaderId(String baseUrl, String token) {
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create(baseUrl + "/admin/realms/" + REALM + "/users?exact=true&username="
+                        + USERNAME))
+                .header("Authorization", "Bearer " + token)
+                .GET()
+                .build();
+        JsonNode found = JSON.readTree(send(request, "look up the reader's id").body());
+        if (!found.isArray() || found.isEmpty()) {
+            throw new IllegalStateException(
+                    "Keycloak reports no user '" + USERNAME + "' just after creating one");
+        }
+        return found.get(0).path("id").asString();
     }
 
     private static String adminToken(String baseUrl) {

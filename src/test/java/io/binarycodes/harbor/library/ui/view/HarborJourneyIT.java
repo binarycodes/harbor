@@ -94,7 +94,7 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
      */
     @BeforeEach
     void startFromAnEmptyLibrary() {
-        StubIdentityConfiguration.authenticate(HarborIdentity.SUBJECT);
+        StubIdentityConfiguration.authenticate(HarborIdentity.subject());
         bookmarkService.find(LibraryQuery.of(LibraryScope.ALL))
                 .forEach(bookmark -> bookmarkService.remove(bookmark.id()));
         page.navigate(getUrl());
