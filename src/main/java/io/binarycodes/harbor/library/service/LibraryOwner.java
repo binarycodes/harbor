@@ -1,22 +1,13 @@
 package io.binarycodes.harbor.library.service;
 
-import org.springframework.stereotype.Component;
-
 /**
- * Whose library is being read or written. Harbor has no accounts yet, so there is
- * one shared owner and everyone reaching the server gets it.
+ * Whose library is being read or written. Every table carries an owner and every
+ * query is scoped by one, so this is the only place that decides who that is.
  *
- * <p>This exists so that adding accounts is a change to this one method rather
- * than to every query: each table carries an owner and each repository call is
- * already scoped by it. When Keycloak lands, {@link #current()} returns the
- * authenticated subject and nothing else has to move.
+ * <p>An interface with one implementation because a test needs to act as two
+ * different readers, which is the only way owner isolation can be asserted at all.
  */
-@Component
-public class LibraryOwner {
+public interface LibraryOwner {
 
-    static final String SHARED = "public";
-
-    public String current() {
-        return SHARED;
-    }
+    String current();
 }

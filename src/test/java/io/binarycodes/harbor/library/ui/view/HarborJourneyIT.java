@@ -3,14 +3,17 @@ package io.binarycodes.harbor.library.ui.view;
 import static com.microsoft.playwright.assertions.PlaywrightAssertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.boot.test.web.server.LocalServerPort;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.DynamicPropertyRegistry;
+import org.springframework.test.context.DynamicPropertySource;
 import org.vaadin.addons.dramafinder.AbstractBasePlaywrightIT;
 
 import com.microsoft.playwright.Locator;
@@ -20,6 +23,8 @@ import org.vaadin.addons.dramafinder.element.TextAreaElement;
 import org.vaadin.addons.dramafinder.element.TextFieldElement;
 
 import io.binarycodes.harbor.HarborDatabase;
+import io.binarycodes.harbor.HarborIdentity;
+import io.binarycodes.harbor.StubIdentityConfiguration;
 import io.binarycodes.harbor.StubMetadataConfiguration;
 import io.binarycodes.harbor.library.domain.LibraryQuery;
 import io.binarycodes.harbor.library.domain.LibraryScope;
@@ -30,34 +35,61 @@ import io.binarycodes.harbor.library.service.BookmarkService;
  * an empty library, save a link, read it, annotate it, and find the annotations
  * again.
  *
+ * <p>Signing in is part of arriving. This is the only tier with a browser, so it is
+ * the only one that can drive Keycloak's own form — and therefore the only place the
+ * redirect, the token exchange, the subject the library is owned by, and the logout
+ * that has to reach Keycloak too are exercised against a real identity provider.
+ *
  * <p>The metadata resolver is stubbed so the run does not depend on someone else's
- * web server, but the storage is the browser's own — persistence is part of what
- * these tests are here to prove.
+ * web server, but the database and the identity provider are real: persistence and
+ * ownership are part of what these tests are here to prove.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @ContextConfiguration(classes = { StubMetadataConfiguration.class, HarborDatabase.class })
 @DisplayName("A reader using Harbor")
-@TestPropertySource(properties = "harbor.archive.browser-url=http://archiver.invalid:9222")
+@ActiveProfiles("test")
 class HarborJourneyIT extends AbstractBasePlaywrightIT {
 
     @Autowired
     private BookmarkService bookmarkService;
 
     /**
+     * A mapped port, which is right here and wrong in a deployment: under
+     * {@code start-dev} Keycloak derives the issuer from the request host, and both this
+     * JVM and Playwright's browser are on the host, so they agree.
+     */
+    @DynamicPropertySource
+    static void pointAtTheContainerisedKeycloak(DynamicPropertyRegistry registry) {
+        registry.add("spring.security.oauth2.client.provider.keycloak.issuer-uri",
+                HarborIdentity::issuerUri);
+    }
+
+    /**
      * The library used to be per-browser, so a fresh browser was a fresh library.
      * It is one database now, and these journeys share it — each has to start from
      * the empty library a first visit sees.
      *
-     * <p>The reload matters: the base class opens the page before this runs, so
+     * <p>The cleanup runs on the test thread, which has been through no login, and the
+     * owner refuses to guess. It is told which reader the journeys are about to sign in
+     * as — the realm export pins that user's id for exactly this.
+     *
+     * <p>The navigation matters: the base class opens the page before this runs, so
      * without it the browser is still showing whatever the previous journey left
-     * behind.
+     * behind. It now lands on Keycloak, so signing in is part of arriving.
      */
     @BeforeEach
     void startFromAnEmptyLibrary() {
+        StubIdentityConfiguration.authenticate(HarborIdentity.SUBJECT);
         bookmarkService.find(LibraryQuery.of(LibraryScope.ALL))
                 .forEach(bookmark -> bookmarkService.remove(bookmark.id()));
         page.navigate(getUrl());
+        signIn();
         waitForVaadin();
+    }
+
+    @AfterEach
+    void forgetTheReader() {
+        StubIdentityConfiguration.forget();
     }
 
     @LocalServerPort
@@ -66,6 +98,49 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
     @Override
     public String getUrl() {
         return "http://localhost:" + port;
+    }
+
+    @Test
+    @DisplayName("arrives signed in, and is told which account they are in")
+    void arrivesSignedIn() {
+        assertThat(page.locator(".account-footer-name")).hasText(HarborIdentity.USERNAME);
+    }
+
+    /**
+     * The failure this guards against looks exactly like a working button: without the
+     * OIDC logout, Harbor's own session goes and Keycloak's stays, so the next visit
+     * comes straight back through it and signs in again with nothing to click.
+     */
+    @Test
+    @DisplayName("signs out, and has to ask again on the way back")
+    void signsOutForReal() {
+        click(page.locator(".account-footer-sign-out"));
+
+        // Signing out lands back on Harbor, which needs a reader, which sends the
+        // browser to Keycloak — so the form appearing is the round trip completing.
+        assertThat(page.locator("#username")).isVisible();
+
+        page.navigate(getUrl());
+
+        assertThat(page.locator("#username")).isVisible();
+    }
+
+    /**
+     * A deep link is the version of this that is easiest to get wrong: the route
+     * resolves before the library is known, so an unauthenticated one has to be turned
+     * away by the filter chain rather than by the screen.
+     */
+    @Test
+    @DisplayName("cannot reach a screen without signing in")
+    void deepLinksRequireSigningIn() {
+        Page anonymous = getBrowser().newPage();
+        try {
+            anonymous.navigate(getUrl() + "/highlights");
+
+            assertThat(anonymous.locator("#username")).isVisible();
+        } finally {
+            anonymous.close();
+        }
     }
 
     @Test
@@ -280,6 +355,26 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
         waitForVaadin();
         click(page.getByRole(AriaRole.MENUITEM, new Page.GetByRoleOptions().setName(option)));
         waitForVaadin();
+    }
+
+    /**
+     * Keycloak's form, filled the way a reader fills it. Submitted with Enter rather
+     * than by clicking: the button's markup belongs to whichever login theme the
+     * version ships, and the form's behaviour does not.
+     *
+     * <p>Silent when there is no form, because the base class has already opened the
+     * page once and a session survives the second navigation.
+     */
+    private void signIn() {
+        Locator username = page.locator("#username");
+        if (username.count() == 0) {
+            return;
+        }
+        username.fill(HarborIdentity.USERNAME);
+        Locator password = page.locator("#password");
+        password.fill(HarborIdentity.PASSWORD);
+        password.press("Enter");
+        page.waitForURL(landed -> landed.startsWith(getUrl()));
     }
 
     /**

@@ -3,6 +3,8 @@ package io.binarycodes.harbor.library.ui.view;
 import java.util.ArrayList;
 import java.util.List;
 
+import jakarta.annotation.security.PermitAll;
+
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.UI;
@@ -23,6 +25,7 @@ import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 /**
  * Every passage the reader has kept, gathered from all their bookmarks.
  */
+@PermitAll
 @Route(value = "highlights", layout = MainLayout.class)
 public class HighlightsView extends VerticalLayout implements HasDynamicTitle {
 

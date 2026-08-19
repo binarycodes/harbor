@@ -185,3 +185,36 @@ vaadin-app-layout:not([overlay])::part(navbar) {
     font-size: var(--aura-font-size-xs);
     color: var(--color-text-tertiary);
 }
+
+/*
+    Under the storage footer, which is the child carrying the auto margin that pins
+    the pair to the bottom. This one takes no margin of its own: two auto margins
+    would split the slack between them and leave a gap in the middle of the drawer.
+*/
+.account-footer {
+    gap: 8px;
+    padding: 8px 8px 4px;
+    border-top: 1px solid var(--vaadin-border-color-secondary);
+}
+
+.account-footer-reader {
+    line-height: 1.3;
+    min-width: 0;
+}
+
+.account-footer-heading {
+    font-size: var(--aura-font-size-xs);
+    color: var(--color-text-tertiary);
+}
+
+/*
+    A realm can hand back a name of any length, and the drawer is a fixed column:
+    without this a long one widens the footer past it rather than wrapping.
+*/
+.account-footer-name {
+    overflow: hidden;
+    font-size: var(--aura-font-size-s);
+    color: var(--vaadin-text-color-secondary);
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}

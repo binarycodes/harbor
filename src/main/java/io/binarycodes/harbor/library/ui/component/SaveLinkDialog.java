@@ -338,9 +338,9 @@ public class SaveLinkDialog extends Dialog {
      * until it changes.
      *
      * <p>The message names neither the address nor the property that would permit it.
-     * Harbor has no accounts, so whoever pasted the link is not necessarily someone
-     * who should be told what the server can see or how its guard is configured; the
-     * detail goes to the log, where the operator will look.
+     * A reader being signed in does not make them the operator, and what the server can
+     * reach or how its guard is configured is the operator's to know; the detail goes
+     * to the log, where they will look.
      */
     private void reportFailure(Throwable failure) {
         if (failure instanceof AddressNotAllowedException) {

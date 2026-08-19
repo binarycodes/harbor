@@ -1,5 +1,7 @@
 package io.binarycodes.harbor.library.ui.view;
 
+import jakarta.annotation.security.PermitAll;
+
 import com.vaadin.flow.router.Route;
 
 import io.binarycodes.harbor.base.ui.MainLayout;
@@ -11,6 +13,7 @@ import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 /**
  * Everything the reader has saved.
  */
+@PermitAll
 @Route(value = "", layout = MainLayout.class)
 public class LibraryView extends LibraryContent {
 

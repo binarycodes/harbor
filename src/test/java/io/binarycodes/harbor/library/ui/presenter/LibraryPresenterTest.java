@@ -11,15 +11,16 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.ActiveProfiles;
 
 import com.vaadin.flow.shared.Registration;
 
 import io.binarycodes.harbor.BrowserlessStorageConfiguration;
 import io.binarycodes.harbor.HarborDatabase;
-import io.binarycodes.harbor.base.ui.BrowserStorage;
+import io.binarycodes.harbor.StubIdentityConfiguration;
 import io.binarycodes.harbor.StubMetadataConfiguration;
+import io.binarycodes.harbor.base.ui.BrowserStorage;
 import io.binarycodes.harbor.library.domain.BookmarkType;
 import io.binarycodes.harbor.library.domain.LibraryQuery;
 import io.binarycodes.harbor.library.domain.LibraryScope;
@@ -36,9 +37,9 @@ import io.binarycodes.harbor.library.service.LegacyLibraryDecoder;
  * is no Vaadin session here.
  */
 @SpringBootTest
-@Import({ HarborDatabase.class, BrowserlessStorageConfiguration.class })
+@Import({ HarborDatabase.class, BrowserlessStorageConfiguration.class, StubIdentityConfiguration.class })
 @DisplayName("The library presenter")
-@TestPropertySource(properties = "harbor.archive.browser-url=http://archiver.invalid:9222")
+@ActiveProfiles("test")
 class LibraryPresenterTest {
 
     private static final String LEGACY_KEY = "harbor.library.v1";

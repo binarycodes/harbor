@@ -19,14 +19,14 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.ActiveProfiles;
 
 import io.binarycodes.harbor.HarborDatabase;
-
+import io.binarycodes.harbor.StubIdentityConfiguration;
 import io.binarycodes.harbor.StubMetadataConfiguration;
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.BookmarkSummary;
@@ -39,9 +39,9 @@ import io.binarycodes.harbor.library.domain.SortMode;
 import io.binarycodes.harbor.library.domain.TagCount;
 
 @SpringBootTest
-@Import({ HarborDatabase.class, BookmarkServiceTest.FixedClock.class })
+@Import({ HarborDatabase.class, StubIdentityConfiguration.class, BookmarkServiceTest.FixedClock.class })
 @DisplayName("The library")
-@TestPropertySource(properties = "harbor.archive.browser-url=http://archiver.invalid:9222")
+@ActiveProfiles("test")
 class BookmarkServiceTest {
 
     @Autowired
@@ -51,6 +51,12 @@ class BookmarkServiceTest {
     private BookmarkRepository repository;
 
     @Autowired
+    private BookmarkArchiveService archives;
+
+    @Autowired
+    private StubIdentityConfiguration identity;
+
+    @Autowired
     private Clock injectedClock;
 
     private TestClock clock;
@@ -58,6 +64,7 @@ class BookmarkServiceTest {
     @BeforeEach
     void startFromAnEmptyLibrary() {
         repository.deleteAll();
+        identity.actAs(StubIdentityConfiguration.READER);
         clock = (TestClock) injectedClock;
         clock.reset();
     }
@@ -569,6 +576,108 @@ class BookmarkServiceTest {
             assertThrows(DuplicateBookmarkException.class,
                     () -> service.update(id, draft("https://example.com/two", "One")));
             assertEquals("One", service.findById(id).orElseThrow().title());
+        }
+    }
+
+    /**
+     * Every query is scoped by owner and none of that was ever asserted, because until
+     * now there was only one owner to assert with. This is what those predicates are
+     * for.
+     */
+    @Nested
+    @DisplayName("belonging to another reader")
+    class AnotherReader {
+
+        @Test
+        @DisplayName("is invisible in the listing, the counts and the tags")
+        void isInvisible() {
+            LinkDraft tagged = draft("https://example.com/one", "One");
+            tagged.setTags(List.of("Research"));
+            String id = service.add(tagged).id();
+            service.addHighlight(id, "A passage worth keeping");
+            service.toggleReadLater(id);
+
+            identity.actAs(StubIdentityConfiguration.OTHER_READER);
+
+            assertEquals(List.of(), service.find(LibraryQuery.of(LibraryScope.ALL)));
+            assertEquals(0, service.count());
+            assertEquals(0, service.countReadLater());
+            assertEquals(0, service.countHighlights());
+            assertEquals(List.of(), service.tagCounts());
+            assertEquals(List.of(), service.withHighlights());
+        }
+
+        @Test
+        @DisplayName("cannot be reached by its id or its URL")
+        void cannotBeFetched() {
+            String id = save("https://example.com/one", "One").id();
+
+            identity.actAs(StubIdentityConfiguration.OTHER_READER);
+
+            assertTrue(service.findById(id).isEmpty());
+            assertTrue(service.findByUrl("https://example.com/one").isEmpty());
+        }
+
+        @Test
+        @DisplayName("survives another reader trying to delete it")
+        void cannotBeDeleted() {
+            String id = save("https://example.com/one", "One").id();
+
+            identity.actAs(StubIdentityConfiguration.OTHER_READER);
+            service.remove(id);
+
+            identity.actAs(StubIdentityConfiguration.READER);
+            assertEquals("One", service.findById(id).orElseThrow().title());
+        }
+
+        @Test
+        @DisplayName("keeps its notes and highlights out of another reader's edits")
+        void cannotBeEdited() {
+            String id = save("https://example.com/one", "One").id();
+
+            identity.actAs(StubIdentityConfiguration.OTHER_READER);
+            service.updateNotes(id, "Notes from someone else");
+            service.addHighlight(id, "A passage from someone else");
+            service.toggleReadLater(id);
+
+            identity.actAs(StubIdentityConfiguration.READER);
+            Bookmark theirs = service.findById(id).orElseThrow();
+            assertEquals("", theirs.notes());
+            assertEquals(List.of(), theirs.highlights());
+            assertFalse(theirs.readLater());
+        }
+
+        @Test
+        @DisplayName("keeps its archive to itself")
+        void keepsItsArchive() {
+            String id = save("https://example.com/one", "One").id();
+            assertTrue(archives.exists(id));
+
+            identity.actAs(StubIdentityConfiguration.OTHER_READER);
+
+            assertFalse(archives.exists(id));
+            assertTrue(archives.findBytes(id).isEmpty());
+        }
+
+        /**
+         * The unique index is on {@code (owner_id, url_key)}, so the same article in two
+         * libraries is two rows rather than a collision. Worth asserting: the duplicate
+         * check reads as global until you look at what it is scoped by.
+         */
+        @Test
+        @DisplayName("can save the same URL without colliding")
+        void savesTheSameUrl() {
+            save("https://example.com/one", "One");
+
+            identity.actAs(StubIdentityConfiguration.OTHER_READER);
+            Bookmark mine = save("https://example.com/one", "One, mine");
+
+            assertEquals(1, service.count());
+            assertEquals("One, mine", service.findById(mine.id()).orElseThrow().title());
+
+            identity.actAs(StubIdentityConfiguration.READER);
+            assertEquals(1, service.count());
+            assertEquals("One", service.findByUrl("https://example.com/one").orElseThrow().title());
         }
     }
 

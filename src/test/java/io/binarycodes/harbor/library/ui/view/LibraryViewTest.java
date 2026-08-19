@@ -6,13 +6,14 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.util.List;
 
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.test.context.TestPropertySource;
 import org.springframework.context.ApplicationContext;
+import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.ContextConfiguration;
 
 import com.vaadin.browserless.SpringBrowserlessTest;
@@ -23,6 +24,7 @@ import com.vaadin.flow.component.textfield.TextField;
 
 import io.binarycodes.harbor.BrowserlessStorageConfiguration;
 import io.binarycodes.harbor.HarborDatabase;
+import io.binarycodes.harbor.StubIdentityConfiguration;
 import io.binarycodes.harbor.StubMetadataConfiguration;
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.BookmarkType;
@@ -41,9 +43,9 @@ import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
 
 @SpringBootTest
 @ContextConfiguration(classes = { StubMetadataConfiguration.class, BrowserlessStorageConfiguration.class,
-        HarborDatabase.class })
+        StubIdentityConfiguration.class, HarborDatabase.class })
 @DisplayName("The library screen")
-@TestPropertySource(properties = "harbor.archive.browser-url=http://archiver.invalid:9222")
+@ActiveProfiles("test")
 class LibraryViewTest extends SpringBrowserlessTest {
 
     /**
@@ -57,8 +59,17 @@ class LibraryViewTest extends SpringBrowserlessTest {
     private LibraryPresenter presenter;
     private LibraryFilter libraryFilter;
 
+    @AfterEach
+    void signOut() {
+        StubIdentityConfiguration.forget();
+    }
+
     @BeforeEach
     void startFromAnEmptyLibrary() {
+        // Navigation access control runs even with no servlet filter chain in front of
+        // it, so a screen reached without an authenticated reader is denied rather than
+        // built. Nothing here has been through a login form.
+        StubIdentityConfiguration.authenticate(StubIdentityConfiguration.READER);
         presenter = applicationContext.getBean(LibraryPresenter.class);
         libraryFilter = applicationContext.getBean(LibraryFilter.class);
         presenter.load();

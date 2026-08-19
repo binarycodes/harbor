@@ -7,7 +7,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.ObjectPostProcessor;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
+import org.springframework.security.oauth2.client.oidc.web.logout.OidcClientInitiatedLogoutSuccessHandler;
+import org.springframework.security.oauth2.client.registration.ClientRegistrationRepository;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.logout.LogoutSuccessHandler;
 import org.springframework.security.web.header.HeaderWriterFilter;
 import org.springframework.security.web.header.writers.CrossOriginOpenerPolicyHeaderWriter.CrossOriginOpenerPolicy;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy;
@@ -15,18 +18,27 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 import com.vaadin.flow.spring.security.VaadinSecurityConfigurer;
 
 /**
- * Harbor has no accounts yet. It used to have nothing to authenticate against
- * either — every bookmark lived in the visitor's own browser — but the library is
- * on the server now, and one visitor's is every visitor's until accounts arrive.
- * See {@code docs/issues/006}.
+ * Every route requires an authenticated reader, and the library each one sees is
+ * their own — see {@code docs/issues/006}, which this closes.
  *
- * <p>Spring Security is still configured explicitly, because leaving it on the
- * classpath unconfigured would put the whole application behind the default
- * generated login form.
+ * <p>There is no Harbor login view: an unauthenticated request redirects straight to
+ * Keycloak. A local form would only collect credentials Harbor has no business
+ * seeing, and the identity provider is the thing that knows how to ask.
+ *
+ * <p>Nothing here grants access on its own. A route without an access annotation is
+ * denied by navigation access control, and ownership is enforced a layer down, in
+ * SQL, by {@code LibraryOwner}.
  */
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    /**
+     * The registration id, which has to agree with
+     * {@code spring.security.oauth2.client.registration.keycloak.*} in
+     * {@code application.properties} — Spring builds this path from that key.
+     */
+    private static final String KEYCLOAK_AUTHORIZATION_PATH = "/oauth2/authorization/keycloak";
 
     /**
      * A year, the shortest max-age browsers accept for HSTS preloading.
@@ -43,10 +55,11 @@ public class SecurityConfig {
             + " serial=(), usb=()";
 
     @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
+    public SecurityFilterChain filterChain(HttpSecurity http,
+            LogoutSuccessHandler oidcLogoutSuccessHandler) throws Exception {
         return http.with(VaadinSecurityConfigurer.vaadin(), vaadin -> vaadin
-                        .anyRequest(request -> request.permitAll())
-                        .enableNavigationAccessControl(false))
+                        .oauth2LoginPage(KEYCLOAK_AUTHORIZATION_PATH)
+                        .logoutSuccessHandler(oidcLogoutSuccessHandler))
                 .headers(headers -> {
                     headers.referrerPolicy(referrer -> referrer
                             .policy(ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN));
@@ -70,5 +83,19 @@ public class SecurityConfig {
                     });
                 })
                 .build();
+    }
+
+    /**
+     * Signing out of Harbor has to sign the reader out of Keycloak too. Dropping only
+     * the local session leaves the identity provider's intact, so the redirect back
+     * comes straight through it and signs in again — which reads as a dead button
+     * rather than a session that outlived the click.
+     */
+    @Bean
+    public LogoutSuccessHandler oidcLogoutSuccessHandler(ClientRegistrationRepository clientRegistrations) {
+        OidcClientInitiatedLogoutSuccessHandler handler =
+                new OidcClientInitiatedLogoutSuccessHandler(clientRegistrations);
+        handler.setPostLogoutRedirectUri("{baseUrl}");
+        return handler;
     }
 }

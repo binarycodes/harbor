@@ -12,9 +12,8 @@ import com.vaadin.flow.server.streams.DownloadHandler;
 
 /**
  * The way to the archived PDF. An anchor over Vaadin's own download handling rather
- * than a route of its own: the bytes then travel inside the session, so when
- * accounts arrive the archive is already scoped to whoever is signed in instead of
- * sitting behind a URL anyone could hold.
+ * than a route of its own: the bytes travel inside the session, so the archive is
+ * scoped to whoever is signed in rather than sitting behind a URL anyone could hold.
  *
  * <p>It opens in a new tab rather than saving to disk. An archive is something to
  * read, and every browser has a PDF viewer — a file landing in Downloads asks the

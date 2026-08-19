@@ -20,6 +20,7 @@ Status is one of:
 | [003](003-search-index-tradeoff.md) | Trigram vs. tsvector for article-body search | Decided |
 | [004](004-optimistic-lock-handling.md) | Optimistic-lock failures reach the UI unhandled | Open |
 | [005](005-async-pdf-rendering.md) | PDF rendering runs inside the save and slows it down | Open |
-| [006](006-open-instance-before-auth.md) | A shared database with no accounts exposes every library | Open |
+| [006](006-open-instance-before-auth.md) | A shared database with no accounts exposes every library | Resolved |
 | [007](007-archive-font-coverage.md) | The archive may have no glyphs beyond Latin | Open |
 | [008](008-consent-overlays.md) | An archive can be a picture of a cookie wall | Open |
+| [009](009-orphaned-shared-owner-rows.md) | The pre-accounts rows are owned by nobody | Open |

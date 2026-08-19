@@ -2,6 +2,8 @@ package io.binarycodes.harbor.library.ui.view;
 
 import java.util.Optional;
 
+import jakarta.annotation.security.PermitAll;
+
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.UI;
@@ -37,6 +39,7 @@ import io.binarycodes.harbor.library.ui.presenter.LibraryPresenter;
  * blanket redraw would re-render the article on each pause in note-taking, throwing
  * away the reader's place on the page.
  */
+@PermitAll
 @Route(value = "read/:" + ReaderView.BOOKMARK_ID, layout = MainLayout.class)
 public class ReaderView extends VerticalLayout implements BeforeEnterObserver, HasDynamicTitle {
 

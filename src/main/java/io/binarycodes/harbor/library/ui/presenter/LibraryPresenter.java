@@ -77,9 +77,9 @@ public class LibraryPresenter {
 
     /**
      * Told when an edit was dropped because another session had already changed
-     * that bookmark. Nothing else can report it: the library is shared while there
-     * are no accounts, and a lost edit that is never mentioned is indistinguishable
-     * from one that was saved.
+     * that bookmark. Nothing else can report it: one reader can have two sessions
+     * open, and a lost edit that is never mentioned is indistinguishable from one
+     * that was saved.
      */
     public Registration addConflictListener(Runnable listener) {
         conflictListeners.add(listener);

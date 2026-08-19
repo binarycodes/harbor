@@ -151,6 +151,24 @@ task_browser() {
     esac
 }
 
+# The identity provider. Login is mandatory on every route and the app fetches the
+# issuer's discovery document at startup, so without this running Harbor does not
+# start at all. The realm, its client and its `reader` user are imported from
+# environment/dev/keycloak/harbor-realm.json on first boot.
+task_keycloak() {
+    local action="${1:-up}"
+    case "${action}" in
+        up)    compose up -d --wait keycloak \
+                   && echo "Keycloak is up on 8081 (realm harbor, reader/reader; console admin/admin)." ;;
+        down)  compose stop keycloak && echo "Keycloak stopped." ;;
+        logs)  compose logs -f keycloak ;;
+        *)
+            echo "Unknown keycloak action: ${action} (expected up, down or logs)" >&2
+            exit 1
+            ;;
+    esac
+}
+
 # Fetch dependencies. Every other task builds offline, which is what makes a
 # newly added dependency fail with a resolution error rather than downloading it.
 task_deps() {
@@ -212,6 +230,7 @@ Usage: ./run.sh <task>
 Tasks:
   db [act]   Development Postgres: up (default), down, logs, reset
   browser    Archiving browser: up (default), down, logs
+  keycloak   Identity provider: up (default), down, logs
   deps       Download newly added dependencies (every other task builds offline)
   compile    Compile sources (triggers a devtools hot-restart of a running app)
   bundle     Clear cached frontend bundles + touch styles.css + recompile
@@ -235,6 +254,7 @@ main() {
         styles)  task_styles ;;
         db)      task_db "${2:-up}" ;;
         browser) task_browser "${2:-up}" ;;
+        keycloak) task_keycloak "${2:-up}" ;;
         deps)    task_deps ;;
         test)    task_test "${@:2}" ;;
         verify)  task_verify "${@:2}" ;;

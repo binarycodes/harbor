@@ -43,9 +43,9 @@ class BookmarkEntity {
     private UUID id;
 
     /**
-     * Optimistic locking, because several sessions share one library while there
-     * are no accounts. It doubles as how Spring Data tells a new row from an
-     * existing one: a null version has never been saved.
+     * Optimistic locking, because one reader can have several sessions open on the
+     * same library — a second tab, a phone. It doubles as how Spring Data tells a new
+     * row from an existing one: a null version has never been saved.
      */
     @Version
     private Long version;

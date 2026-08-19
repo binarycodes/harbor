@@ -1,9 +1,13 @@
-# The database Harbor talks to while you are developing it. The credentials are
-# harbor/harbor and the port is published on localhost, which is only acceptable
-# because this file is for a laptop: nothing here belongs on a machine anyone
-# else can reach. A deployment sets HARBOR_DB_URL, HARBOR_DB_USER and
-# HARBOR_DB_PASSWORD instead, and the application has no defaults worth trusting
-# beyond the ones that match this file.
+# The three services Harbor talks to while you are developing it: its database, the
+# browser it archives with, and the identity provider it authenticates against.
+#
+# Every credential here is published and guessable — harbor/harbor on a published
+# 5432, admin/admin on the Keycloak console, a client secret in version control and a
+# realm that accepts any localhost port back. That is only acceptable because this
+# file is for a laptop: nothing here belongs on a machine anyone else can reach. A
+# deployment sets HARBOR_DB_URL, HARBOR_DB_USER, HARBOR_DB_PASSWORD,
+# HARBOR_BROWSER_URL and the HARBOR_OIDC_* trio against a realm of its own, and the
+# application has no defaults worth trusting beyond the ones that match this file.
 
 services:
   postgres:
@@ -50,6 +54,40 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+    restart: unless-stopped
+
+  # Who Harbor asks about the reader. Login is mandatory on every route, so this is
+  # as required as the database — the app fetches the issuer's discovery document at
+  # startup and will not start without it.
+  #
+  # The realm, its client and its one user all come from the committed export in
+  # keycloak/harbor-realm.json, imported on first boot: a fresh checkout gets a working
+  # identity provider with no clicking through the admin console. The test suite copies
+  # the same file into a container of its own, so there is one definition rather than
+  # two that drift.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    container_name: harbor-dev-keycloak
+    command: ["start-dev", "--import-realm"]
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: admin
+      # The readiness endpoint lives on the management port, and only when asked for.
+      KC_HEALTH_ENABLED: "true"
+    # 8081, because Keycloak's own default is Harbor's.
+    ports:
+      - "8081:8080"
+    volumes:
+      - ./keycloak/harbor-realm.json:/opt/keycloak/data/import/harbor-realm.json:ro
+    # The image carries no curl or wget, so this probes the management port through
+    # bash the way the chromium service does. Not the realm endpoint, which would need
+    # an HTTP client: /health/ready reports before the import has finished, so `up
+    # --wait` returning is the container being up rather than the realm being ready.
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/9000' || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
     restart: unless-stopped
 
 volumes:

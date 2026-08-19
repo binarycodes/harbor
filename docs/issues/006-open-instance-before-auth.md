@@ -1,7 +1,8 @@
 # 006 — A shared database with no accounts exposes every library
 
-**Status:** Open. The README warning ships with the PostgreSQL commit; the fix
-arrives with Keycloak.
+**Status:** Resolved. Login is mandatory on every route and every row is owned by
+the authenticated Keycloak subject. The rows written before that are left orphaned
+rather than adopted — see [`009`](009-orphaned-shared-owner-rows.md).
 
 ## Context
 
@@ -31,7 +32,7 @@ The change in exposure is larger than it looks:
 The outbound fetch guard does not help here. It bounds where the server can
 *reach*; it says nothing about who can reach the server.
 
-## What ships now
+## What shipped in the meantime
 
 An honest README section. The existing note under *What the server is allowed to
 fetch* already says "Harbor has no accounts, so anyone who can reach the app can
@@ -43,15 +44,46 @@ reverse proxy until accounts land.
 `SecurityConfig`'s javadoc needs rewriting for the same reason. Leaving it saying
 there is no per-user data on the server is worse than saying nothing.
 
-## What resolves it
+## What resolved it
 
-Keycloak / OIDC, which is already planned. The schema is shaped for it: every
-table carries `owner_id`, every repository method takes an owner, and
-`LibraryOwner` returns a constant today and an OIDC subject later. The unique
-index is on `(owner_id, url_key)`, so two users saving the same URL is already
-correct rather than a duplicate.
+Keycloak, as planned, and with less moving than expected. The schema was already
+shaped for it — every table carries `owner_id`, every repository method takes one,
+and the unique index is on `(owner_id, url_key)` so two readers saving the same URL
+was already correct rather than a duplicate. There was no migration and no query
+change.
 
-When it lands, the remaining work is the interesting part: what happens to the
-rows written under the shared `"public"` owner. They need assigning to someone —
-most likely the first authenticated user, or an explicit adoption step — and that
-should be decided before the first real deployment accumulates data, not after.
+What did change:
+
+- `LibraryOwner` returns the authenticated OIDC subject. It is an interface now,
+  with `AuthenticatedLibraryOwner` behind it, which **throws rather than falling
+  back**: a default owner would put an unauthenticated code path back to writing
+  into one shared library, which is the bug being removed.
+- `SecurityConfig` lost the two lines that permitted everything
+  (`anyRequest(permitAll)` and `enableNavigationAccessControl(false)`) and gained
+  `oauth2LoginPage("/oauth2/authorization/keycloak")`. There is no Harbor login
+  view; an unauthenticated request goes straight to Keycloak. Logout goes through
+  `OidcClientInitiatedLogoutSuccessHandler`, without which Keycloak's session
+  outlives Harbor's and the next visit signs straight back in.
+- The four routes carry `@PermitAll`. With navigation access control on, a route
+  with no annotation is denied — which is now the convention.
+- Authorization is nothing more than "authenticated". No roles. Ownership does the
+  rest, in SQL.
+
+The remaining question this file raised — what happens to the rows written under
+the shared `"public"` owner — was answered by leaving them alone. They are
+invisible to every query and cost only disk, and no automatic adoption is right for
+a deployment that more than one person shared. That is a deferred decision rather
+than a resolution, so it has a file of its own:
+[`009`](009-orphaned-shared-owner-rows.md).
+
+## What it did not cover
+
+- **One realm, one client, no roles.** Nothing distinguishes readers beyond who
+  they are; there is no sharing, no read-only access and no administrator.
+- **The issuer has to match.** In development the app and the browser both reach
+  Keycloak at `localhost:8081`, so it agrees by accident. In a container deployment
+  the browser sees a public URL and the app sees `harbor-keycloak:8080` — two
+  issuers, and token validation fails with a redirect loop that names nothing
+  useful. Documented in the README, mitigated by nothing else.
+- **A third required container.** Harbor now needs PostgreSQL, a browser and an
+  identity provider before it can do anything at all.

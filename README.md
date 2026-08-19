@@ -43,11 +43,11 @@ are upgrading, Harbor takes that library in the first time you open it and tells
 you how many bookmarks it brought over. The only thing still kept in the browser
 is whether you prefer light or dark.
 
-**Harbor has no accounts yet**, and that now matters more than it did. When the
-library was in your browser, someone else reaching your instance saw an empty
-app. With a shared database they see everything you have saved, and can edit and
-delete it. Run it on a trusted network, or behind a reverse proxy that
-authenticates, until accounts arrive.
+**Every library belongs to one reader.** Harbor authenticates against Keycloak, and
+login is mandatory on every screen — there is no way to reach a bookmark, a note, a
+highlight or an archived PDF without signing in first, and what you see is only ever
+your own. That makes an identity provider a required third service alongside the
+database and the browser; see *Authentication* below.
 
 Follows your system light/dark setting, or pin either one.
 
@@ -59,8 +59,8 @@ A prebuilt, multi-architecture image (`linux/amd64` + `linux/arm64`) is publishe
 to Docker Hub at **[`binarycodes/harbor`](https://hub.docker.com/r/binarycodes/harbor)**.
 No build and no configuration required.
 
-Harbor needs a PostgreSQL to talk to, so the compose stack below is the shortest
-way in. Then open <http://localhost:8080>.
+Harbor needs a PostgreSQL, a browser and an identity provider to talk to, so the
+compose stack below is the shortest way in. Then open <http://localhost:8080>.
 
 - Use `binarycodes/harbor:latest` for the newest build, or pin a version tag —
   images are also tagged with the project's Maven version.
@@ -68,8 +68,14 @@ way in. Then open <http://localhost:8080>.
   variable: `-e PORT=9090 -p 9090:9090`.
 - The database is configured with `HARBOR_DB_URL`, `HARBOR_DB_USER` and
   `HARBOR_DB_PASSWORD`. Harbor creates and migrates its own schema on startup.
+- Login is configured with `HARBOR_OIDC_ISSUER_URI`, `HARBOR_OIDC_CLIENT_ID` and
+  `HARBOR_OIDC_CLIENT_SECRET`. Read *Authentication* before you deploy this: the
+  issuer URL is the one thing here that is easy to get subtly wrong.
 
 ### docker compose
+
+Replace `harbor.example.com` with the address readers will actually type. It has to
+be the same in both places it appears — see *Authentication*.
 
 ```yaml
 services:
@@ -82,12 +88,20 @@ services:
       - HARBOR_DB_USER=harbor
       - HARBOR_DB_PASSWORD=change-me
       - HARBOR_BROWSER_URL=http://chromium:9222
+      # The public URL of Keycloak, not http://keycloak:8080 — the same URL the
+      # browser is sent to. See Authentication below; getting this wrong produces a
+      # redirect loop that explains nothing.
+      - HARBOR_OIDC_ISSUER_URI=https://harbor.example.com/auth/realms/harbor
+      - HARBOR_OIDC_CLIENT_ID=harbor
+      - HARBOR_OIDC_CLIENT_SECRET=change-me
       # Only if you need Harbor to reach private addresses; see below.
       # - HARBOR_ALLOWED_RANGES=192.168.1.50/32
     depends_on:
       postgres:
         condition: service_healthy
       chromium:
+        condition: service_started
+      keycloak:
         condition: service_started
     restart: unless-stopped
 
@@ -98,6 +112,32 @@ services:
     image: chromedp/headless-shell:151.0.7922.109
     shm_size: 512m
     mem_limit: 1g
+    restart: unless-stopped
+
+  # Your realm, your client, your users. Nothing here is imported for you: create the
+  # realm and a confidential client called `harbor` in the admin console, and give the
+  # client the exact redirect URI https://harbor.example.com/login/oauth2/code/keycloak.
+  #
+  # KC_HOSTNAME is not decoration. Keycloak stamps it into the issuer claim of every
+  # token, and Harbor rejects a token whose issuer is not the one it was configured
+  # with — so this and HARBOR_OIDC_ISSUER_URI describe the same address or nothing
+  # works.
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.4
+    command: ["start", "--optimized"]
+    environment:
+      - KC_HOSTNAME=https://harbor.example.com/auth
+      - KC_PROXY_HEADERS=xforwarded
+      - KC_HTTP_ENABLED=true
+      - KC_DB=postgres
+      - KC_DB_URL=jdbc:postgresql://postgres:5432/keycloak
+      - KC_DB_USERNAME=harbor
+      - KC_DB_PASSWORD=change-me
+      - KC_BOOTSTRAP_ADMIN_USERNAME=admin
+      - KC_BOOTSTRAP_ADMIN_PASSWORD=change-me
+    depends_on:
+      postgres:
+        condition: service_healthy
     restart: unless-stopped
 
   postgres:
@@ -119,7 +159,9 @@ volumes:
   harbor-data:
 ```
 
-`harbor-data` is your library. Back it up.
+`harbor-data` is your library. Back it up. Keycloak wants a `keycloak` database of
+its own in that same server — `createdb -U harbor keycloak`, once — and its realm
+configuration lives there, so the backup covers your accounts too.
 
 ### Podman Quadlet (systemd)
 
@@ -127,7 +169,7 @@ If you run [Podman](https://podman.io), a [Quadlet](https://docs.podman.io/en/la
 lets systemd manage the containers declaratively — start on boot, restart on
 failure, and optional auto-updates — without a long-running daemon.
 
-Harbor is three containers, so this is five unit files rather than one. They go in
+Harbor is four containers, so this is six unit files rather than one. They go in
 `/etc/containers/systemd/` (rootful) or `~/.config/containers/systemd/` (rootless).
 A network of their own is what lets them find each other by name; containers on
 Podman's default network cannot.
@@ -192,14 +234,49 @@ Restart=always
 WantedBy=multi-user.target default.target
 ```
 
+`harbor-keycloak.container` — who Harbor asks about the reader. `KC_HOSTNAME` has to
+be the public URL, because Keycloak stamps it into the issuer claim of every token
+and Harbor validates against exactly that:
+
+```ini
+[Unit]
+Description=The identity provider Harbor authenticates against
+Requires=harbor-postgres.service
+After=harbor-postgres.service
+
+[Container]
+ContainerName=harbor-keycloak
+Image=quay.io/keycloak/keycloak:26.4
+Network=harbor.network
+Exec=start --optimized
+Environment=KC_HOSTNAME=https://harbor.example.com/auth
+Environment=KC_PROXY_HEADERS=xforwarded
+Environment=KC_HTTP_ENABLED=true
+# Its own database in the same server; createdb -U harbor keycloak once.
+Environment=KC_DB=postgres
+Environment=KC_DB_URL=jdbc:postgresql://harbor-postgres:5432/keycloak
+Environment=KC_DB_USERNAME=harbor
+Environment=KC_DB_PASSWORD=change-me
+Environment=KC_BOOTSTRAP_ADMIN_USERNAME=admin
+Environment=KC_BOOTSTRAP_ADMIN_PASSWORD=change-me
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=multi-user.target default.target
+```
+
 `harbor.container`:
 
 ```ini
 [Unit]
 Description=Harbor research library
 # Harbor refuses to start without a browser configured, and cannot save without one.
-Requires=harbor-postgres.service harbor-chromium.service
-After=harbor-postgres.service harbor-chromium.service network-online.target
+# It also fetches the issuer's discovery document at startup, so a Keycloak that is
+# not up yet is an application that does not start.
+Requires=harbor-postgres.service harbor-chromium.service harbor-keycloak.service
+After=harbor-postgres.service harbor-chromium.service harbor-keycloak.service network-online.target
 Wants=network-online.target
 
 [Container]
@@ -211,6 +288,10 @@ Environment=HARBOR_DB_URL=jdbc:postgresql://harbor-postgres:5432/harbor
 Environment=HARBOR_DB_USER=harbor
 Environment=HARBOR_DB_PASSWORD=change-me
 Environment=HARBOR_BROWSER_URL=http://harbor-chromium:9222
+# The public URL, matching KC_HOSTNAME above — not http://harbor-keycloak:8080.
+Environment=HARBOR_OIDC_ISSUER_URI=https://harbor.example.com/auth/realms/harbor
+Environment=HARBOR_OIDC_CLIENT_ID=harbor
+Environment=HARBOR_OIDC_CLIENT_SECRET=change-me
 # Only if you need Harbor to reach private addresses; see below.
 # Environment=HARBOR_ALLOWED_RANGES=192.168.1.50/32
 # Opt in to `podman auto-update` pulling newer :latest images.
@@ -229,7 +310,7 @@ container after its unit with a `systemd-` prefix, and those names are what the
 URLs above resolve.
 
 Then reload systemd and start it (add `--user` for the rootless path). Starting
-Harbor pulls the other two in through `Requires=`:
+Harbor pulls the other three in through `Requires=`:
 
 ```bash
 systemctl daemon-reload
@@ -240,8 +321,68 @@ systemctl start harbor.service
 ```
 
 With `AutoUpdate=registry`, enabling `podman-auto-update.timer` keeps the
-containers on the latest published images — though `harbor-chromium` is pinned to a
-version, so updating the browser is a deliberate edit rather than automatic.
+containers on the latest published images — though `harbor-chromium` and
+`harbor-keycloak` are pinned to versions, so updating either is a deliberate edit
+rather than automatic.
+
+### Authentication
+
+Harbor is an OIDC client and nothing else. It has no login form, no user table and no
+password of its own: an unauthenticated request is redirected to Keycloak, and what
+comes back is a token whose `sub` claim becomes the owner of every row that reader
+writes. Signing out signs you out of Keycloak too, so the next visit asks again.
+
+Three settings, and the app fetches the issuer's discovery document at startup — so a
+Keycloak that is down or misconfigured is an application that refuses to start rather
+than one that boots into a broken login:
+
+| | |
+|---|---|
+| `HARBOR_OIDC_ISSUER_URI` | `https://your-keycloak/realms/harbor` |
+| `HARBOR_OIDC_CLIENT_ID` | the client id, `harbor` by default |
+| `HARBOR_OIDC_CLIENT_SECRET` | the client's secret — it is a confidential client |
+
+In Keycloak: a realm, a client with **standard flow** on and **public client** off,
+and a redirect URI of exactly `https://your-harbor/login/oauth2/code/keycloak`. Add a
+valid post-logout redirect URI of `https://your-harbor` while you are there, or
+signing out lands on a Keycloak error page. There are no roles to assign — every
+authenticated reader gets their own library and nothing else.
+
+#### The issuer has to match. This is the one that costs an evening.
+
+Keycloak stamps a URL into the `iss` claim of every token it issues, and Harbor
+refuses a token whose issuer is not the one it was configured with. Those two have to
+be the same string.
+
+They agree by accident in development, where the app runs on the host and reaches
+Keycloak at the same `localhost:8081` the browser does. They disagree the moment
+Harbor moves into a container, where the browser sees a public URL and the app sees
+`harbor-keycloak:8080` — and it is tempting to configure the app with the address it
+can actually reach.
+
+Don't. **Set `KC_HOSTNAME` to the public URL and give Harbor that same public URL as
+`HARBOR_OIDC_ISSUER_URI`**, even though the app then resolves it back through your
+proxy. The container can reach it; that is what matters.
+
+The symptom of getting this wrong is a redirect loop between Harbor and Keycloak that
+names nothing useful in either log. If you see one, compare
+`curl -s https://your-keycloak/realms/harbor | grep issuer` against
+`HARBOR_OIDC_ISSUER_URI`. They will differ.
+
+#### Upgrading from a version without accounts
+
+Everything saved before accounts belongs to the shared owner `public`, and every
+query is scoped by owner — so a signed-in reader sees an empty library rather than
+that data. Nothing is deleted, and nothing is adopted automatically, because no
+automatic answer is right for an instance more than one person used. If the old
+library was yours alone, claim it once you know your subject:
+
+```sql
+update bookmark set owner_id = '<your-sub>' where owner_id = 'public';
+update bookmark_archive set owner_id = '<your-sub>' where owner_id = 'public';
+```
+
+The reasoning is in [`docs/issues/009`](docs/issues/009-orphaned-shared-owner-rows.md).
 
 ### Serve over HTTPS (recommended)
 
@@ -281,9 +422,10 @@ Comma-separated, IPv4 or IPv6, and it overrides the refused ranges rather than
 replacing them, so permitting one machine leaves everything else refused. A range
 Harbor cannot read fails startup rather than silently never matching.
 
-Worth being clear about what this does and does not do: Harbor has no accounts, so
-anyone who can reach the app can use the save box. The guard bounds *where* that
-reaches; it does not authenticate anyone.
+Worth being clear about what this does and does not do. The guard bounds *where* the
+server can reach; who is allowed to make it reach anywhere at all is a separate
+question, answered by *Authentication* above. Any signed-in reader can use the save
+box, and this is what bounds where that goes.
 
 **It also does not bound the archiving browser.** Chromium does its own DNS and its
 own connections, so `HARBOR_ALLOWED_RANGES` and the refused ranges above say nothing
@@ -296,26 +438,33 @@ reachable from it, they are reachable by any page you archive.
 
 ## Develop locally
 
-Requirements: **JDK 21**, and a container runtime — the development database and the
-archiving browser both run in one, and the tests start their own throwaway
-PostgreSQL. Every task goes
+Requirements: **JDK 21**, and a container runtime — the development database, the
+archiving browser and the identity provider all run in one, and the tests start their
+own throwaway copies. Every task goes
 through `./run.sh`, which pins JDK 21
 (from SDKMAN if present, otherwise your `JAVA_HOME`) — a bare `mvn` under a newer
 JDK makes Lombok fail in confusing ways. Run `./run.sh` with no arguments to list
 the tasks.
 
 ```bash
-./run.sh db up && ./run.sh browser up
+./run.sh db up && ./run.sh browser up && ./run.sh keycloak up
 ```
 
 ```bash
 ./run.sh run
 ```
 
-Open <http://localhost:8080>. The database defaults match
-`environment/dev/compose.yaml`, so nothing needs configuring. `./run.sh db reset`
-throws the data away and gives you a first-run empty library. The frontend is rebuilt on the fly in development
+Open <http://localhost:8080> and sign in as **`reader` / `reader`**. Every default
+matches `environment/dev/compose.yaml`, so nothing needs configuring — including the
+realm, which is imported from a committed export on Keycloak's first boot.
+`./run.sh db reset` throws the data away and gives you a first-run empty library. The
+frontend is rebuilt on the fly in development
 mode; the first start downloads npm dependencies and takes a little longer.
+
+Those credentials, the `harbor-dev-secret` client secret in version control and the
+realm's wildcard redirect URI are all fine on a laptop and nowhere else;
+[`environment/dev/README.md`](environment/dev/README.md) says which is which, and how
+to add a second reader for checking that one library really is invisible to another.
 
 Run the tests:
 
@@ -324,15 +473,19 @@ Run the tests:
 ./run.sh verify    # the above plus the Playwright end-to-end journeys
 ```
 
-Both start their own PostgreSQL and their own Chromium in containers, so neither needs
-the development stack running. `run.sh` finds the container engine from your docker
+Both start their own containers, so neither needs the development stack running: a
+PostgreSQL for anything touching the library, a Chromium for the archiver, and — for
+the end-to-end journeys, which sign in through Keycloak's real login form — a Keycloak
+importing the same realm export. `run.sh` finds the container engine from your docker
 context, which is what makes this work on Colima and Rancher Desktop — their socket
 lives under your home directory, where Testcontainers does not look on its own.
 
-Where containers cannot run at all, point the tests at your own instead:
+Where containers cannot run at all, point the tests at your own instead. The unit
+tiers need only a database; the end-to-end journeys need all three and are not
+runnable without a container runtime:
 
 ```bash
-./run.sh verify -Dharbor.test.database=external -Dspring.datasource.url=jdbc:postgresql://host:5432/harbor_test -Dharbor.archive.browser-url=http://host:9222
+./run.sh test -Dharbor.test.database=external -Dspring.datasource.url=jdbc:postgresql://host:5432/harbor_test
 ```
 
 Two more tasks worth knowing: after changing a `@CssImport(themeFor=…)` or

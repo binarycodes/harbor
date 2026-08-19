@@ -17,6 +17,7 @@ import com.vaadin.flow.component.notification.Notification;
 import com.vaadin.flow.component.orderedlayout.VerticalLayout;
 import com.vaadin.flow.router.RouteParameters;
 import com.vaadin.flow.shared.Registration;
+import com.vaadin.flow.spring.security.AuthenticationContext;
 
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.TagCount;
@@ -40,16 +41,19 @@ public class MainLayout extends AppLayout {
     private final LibraryNavigation navigation = new LibraryNavigation();
     private final TagFilterList tagFilters;
     private final StorageFooter storageFooter;
+    private final AccountFooter accountFooter;
     private final SaveLinkDialog saveLinkDialog;
     private final List<Registration> registrations = new ArrayList<>();
 
     private boolean importReported;
 
-    public MainLayout(LibraryPresenter presenter, LibraryFilter libraryFilter) {
+    public MainLayout(LibraryPresenter presenter, LibraryFilter libraryFilter,
+            AuthenticationContext authenticationContext) {
         this.presenter = presenter;
         this.libraryFilter = libraryFilter;
         tagFilters = new TagFilterList(presenter, libraryFilter);
         storageFooter = new StorageFooter(presenter);
+        accountFooter = new AccountFooter(authenticationContext);
         saveLinkDialog = new SaveLinkDialog(presenter, this::openReader);
 
         setPrimarySection(Section.DRAWER);
@@ -76,7 +80,7 @@ public class MainLayout extends AppLayout {
 
     private VerticalLayout sidebar() {
         VerticalLayout sidebar = new VerticalLayout(new SidebarBrand(), saveLinkButton(), navigation,
-                tagFilters, storageFooter);
+                tagFilters, storageFooter, accountFooter);
         sidebar.addClassName("sidebar");
         sidebar.setSizeFull();
         sidebar.setPadding(false);
@@ -123,9 +127,9 @@ public class MainLayout extends AppLayout {
     }
 
     /**
-     * A shared library means two people can edit the same bookmark, and the one who
-     * loses has to be told — their change is gone, and the screen has just redrawn
-     * with someone else's.
+     * One reader can still be in two places — a second tab, a phone — and edit the
+     * same bookmark from both. The one who loses has to be told: their change is
+     * gone, and the screen has just redrawn with the other edit.
      */
     private void reportConflict() {
         Notification.show(getTranslation("library.conflict"));
