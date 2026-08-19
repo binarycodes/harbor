@@ -120,50 +120,23 @@ compose() {
     fi
 }
 
-# The development database. Nothing runs without it — the library lives there.
-task_db() {
+# The whole development stack, because Harbor needs all of it: the library lives in
+# Postgres, a page that cannot be archived is not saved, and login is mandatory on
+# every route. Which containers that means is compose's to decide from
+# environment/dev/compose.yaml, so adding a service there needs no change here.
+#
+# --wait rather than plain -d: every service declares a healthcheck, and the app
+# starting before them is what turns a slow container into a confusing connection or
+# discovery error at startup.
+task_env() {
     local action="${1:-up}"
     case "${action}" in
-        up)    compose up -d postgres && echo "Postgres is up on 5432 (harbor/harbor)." ;;
-        down)  compose stop postgres && echo "Postgres stopped; its data is kept." ;;
-        logs)  compose logs -f postgres ;;
-        reset) compose down -v && echo "Postgres stopped and its data thrown away." ;;
+        up)    compose up -d --wait && echo "Development stack is up. Harbor needs no configuration to reach it." ;;
+        down)  compose stop && echo "Development stack stopped; its data is kept." ;;
+        logs)  compose logs -f ;;
+        reset) compose down -v && echo "Development stack stopped and its data thrown away." ;;
         *)
-            echo "Unknown db action: ${action} (expected up, down, logs or reset)" >&2
-            exit 1
-            ;;
-    esac
-}
-
-# The browser that renders the archive. Harbor will not save a page it cannot
-# archive, so without this running nothing can be filed.
-task_browser() {
-    local action="${1:-up}"
-    case "${action}" in
-        up)    compose up -d --wait chromium \
-                   && echo "Chromium is up on 9222; set HARBOR_BROWSER_URL=http://localhost:9222." ;;
-        down)  compose stop chromium && echo "Chromium stopped." ;;
-        logs)  compose logs -f chromium ;;
-        *)
-            echo "Unknown browser action: ${action} (expected up, down or logs)" >&2
-            exit 1
-            ;;
-    esac
-}
-
-# The identity provider. Login is mandatory on every route and the app fetches the
-# issuer's discovery document at startup, so without this running Harbor does not
-# start at all. The realm, its client and its `reader` user are imported from
-# environment/dev/keycloak/harbor-realm.json on first boot.
-task_keycloak() {
-    local action="${1:-up}"
-    case "${action}" in
-        up)    compose up -d --wait keycloak \
-                   && echo "Keycloak is up on 8081 (realm harbor, reader/reader; console admin/admin)." ;;
-        down)  compose stop keycloak && echo "Keycloak stopped." ;;
-        logs)  compose logs -f keycloak ;;
-        *)
-            echo "Unknown keycloak action: ${action} (expected up, down or logs)" >&2
+            echo "Unknown env action: ${action} (expected up, down, logs or reset)" >&2
             exit 1
             ;;
     esac
@@ -228,9 +201,8 @@ usage() {
 Usage: ./run.sh <task>
 
 Tasks:
-  db [act]   Development Postgres: up (default), down, logs, reset
-  browser    Archiving browser: up (default), down, logs
-  keycloak   Identity provider: up (default), down, logs
+  env [act]  Everything in environment/dev/compose.yaml: up (default), down, logs,
+             reset (throws the data away)
   deps       Download newly added dependencies (every other task builds offline)
   compile    Compile sources (triggers a devtools hot-restart of a running app)
   bundle     Clear cached frontend bundles + touch styles.css + recompile
@@ -252,9 +224,7 @@ main() {
         compile) task_compile ;;
         bundle)  task_bundle ;;
         styles)  task_styles ;;
-        db)      task_db "${2:-up}" ;;
-        browser) task_browser "${2:-up}" ;;
-        keycloak) task_keycloak "${2:-up}" ;;
+        env)     task_env "${2:-up}" ;;
         deps)    task_deps ;;
         test)    task_test "${@:2}" ;;
         verify)  task_verify "${@:2}" ;;

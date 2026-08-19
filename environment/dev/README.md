@@ -5,7 +5,7 @@ optional: the library lives in PostgreSQL, Harbor refuses to save a page it cann
 archive, and login is mandatory on every route.
 
 ```bash
-./run.sh db up && ./run.sh browser up && ./run.sh keycloak up
+./run.sh env up
 ```
 
 Then start the app as usual; `application.properties` defaults to exactly these
@@ -17,16 +17,17 @@ containers, so no configuration is needed.
 
 Open <http://localhost:8080> and sign in as **`reader` / `reader`**.
 
-`./run.sh db down` stops the database and keeps the data. `./run.sh db reset`
-throws the volume away, which is how you get back to a first-run empty library —
-note that it takes the whole stack down, Keycloak included, since the realm lives
-in the same compose project.
+One task for the whole stack rather than one per service: which containers it brings
+up is compose's decision, so a service added to `compose.yaml` needs no change to
+`run.sh`. `./run.sh env down` stops them and keeps the data; `./run.sh env reset`
+throws the volumes away, which is how you get back to a first-run empty library.
+`./run.sh env logs` follows all three at once.
 
 ## The realm
 
 `keycloak/harbor-realm.json` is a realm export, imported on first boot by
 `start-dev --import-realm`. One committed file rather than a scripted setup or a
-walk through the admin console, so a fresh checkout plus `./run.sh keycloak up` is a
+walk through the admin console, so a fresh checkout plus `./run.sh env up` is a
 working identity provider with no manual steps.
 
 | | |
