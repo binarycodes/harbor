@@ -19,7 +19,6 @@ Status is one of:
 | [005](005-async-pdf-rendering.md) | PDF rendering runs inside the save and slows it down | Open |
 | [007](007-archive-font-coverage.md) | The archive may have no glyphs beyond Latin | Open |
 | [008](008-consent-overlays.md) | An archive can be a picture of a cookie wall | Open |
-| [009](009-orphaned-shared-owner-rows.md) | The pre-accounts rows are owned by nobody | Open |
 
 Numbers are never reused, so a gap means a file was removed rather than that one is
 missing.

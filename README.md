@@ -388,7 +388,8 @@ update bookmark set owner_id = '<your-sub>' where owner_id = 'public';
 update bookmark_archive set owner_id = '<your-sub>' where owner_id = 'public';
 ```
 
-The reasoning is in [`docs/issues/009`](docs/issues/009-orphaned-shared-owner-rows.md).
+The `public` rows are invisible rather than gone: every query is scoped by owner and no
+subject is ever the literal `public`, so they cost disk and nothing else.
 
 ### Serve over HTTPS (recommended)
 
