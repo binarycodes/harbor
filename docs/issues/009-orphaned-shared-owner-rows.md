@@ -5,10 +5,9 @@ urgent and nothing about it is resolved.
 
 ## Context
 
-Before accounts, every row was written with `owner_id = 'public'` — one shared
-library for everyone who could reach the instance, which is what
-[`006`](006-open-instance-before-auth.md) was about. Accounts replaced that
-constant with the authenticated Keycloak subject.
+Before accounts, every row was written with `owner_id = 'public'` — one shared library
+for everyone who could reach the instance. Accounts replaced that constant with the
+authenticated Keycloak subject.
 
 No migration went with it. The `'public'` rows are still in `bookmark` and
 `bookmark_archive`, exactly as they were.

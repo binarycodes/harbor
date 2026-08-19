@@ -100,9 +100,8 @@ class LibraryPresenterTest {
     }
 
     /**
-     * The upgrade that would otherwise lose a reader's library — see
-     * docs/issues/001. The old payload is the shape Harbor wrote before there was
-     * a database.
+     * The upgrade that would otherwise lose a reader's library. The old payload is the
+     * shape Harbor wrote before there was a database.
      */
     @Test
     @DisplayName("takes in a library this browser was still holding, and says how many")

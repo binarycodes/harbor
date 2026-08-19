@@ -15,6 +15,14 @@ import org.springframework.data.repository.query.Param;
  * tags, a trigram {@code like} over the search text, and ICU collation on the
  * title.
  *
+ * <p>Trigram rather than {@code tsvector} for the body search, which is a trade rather
+ * than an oversight: a substring {@code like} means exactly what it looks like, so the
+ * service tests kept their meaning through the move to PostgreSQL. The cost is a second
+ * copy of the text on disk, acceptable for a personal library. {@code tsvector} is what
+ * to reach for if ranking — best match first rather than most recent first — is ever
+ * wanted; both are a generated column plus an index, so either direction is one
+ * migration and one changed {@code where} clause.
+ *
  * <p>Every parameter is cast explicitly. PostgreSQL will not infer the type of a
  * bound parameter that appears only beside another parameter, and the error when
  * it cannot is a long way from the cause.

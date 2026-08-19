@@ -178,7 +178,7 @@ class OpenGraphMetadataResolverTest {
     }
 
     /**
-     * Archiving is exercised by {@link ArticlePdfRendererTest}; here it is stubbed
+     * Archiving is exercised by {@link BrowserPageArchiverTest}; here it is stubbed
      * out so these tests stay about what a page says of itself.
      */
     private static OpenGraphMetadataResolver resolverOver(DocumentLoader loader) {

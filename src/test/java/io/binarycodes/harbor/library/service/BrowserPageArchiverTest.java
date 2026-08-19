@@ -64,8 +64,8 @@ class BrowserPageArchiverTest {
                   <div class="cell">Left column</div>
                   <div class="cell">Right column</div>
                 </div><p>%s</p></body></html>""".formatted(prose())));
-        // The case docs/issues/002 was about: the real image only appears once script
-        // runs. A browser runs it; the old renderer had to chase the attribute by hand.
+        // The real image only appears once script runs. A browser runs it; the renderer
+        // this replaced had to chase the deferred-loading attributes by hand.
         server.createContext("/deferred", exchange -> respond(exchange, """
                 <html><head><title>Deferred</title></head>
                 <body><h1>Deferred</h1>
@@ -119,8 +119,8 @@ class BrowserPageArchiverTest {
     }
 
     /**
-     * The case docs/issues/002 was about, and the reason a browser does the rendering:
-     * this text exists only after the page's script has run.
+     * The reason a browser does the rendering: this text exists only after the page's
+     * own script has run.
      */
     @Test
     @DisplayName("captures what the page's own script drew")

@@ -19,7 +19,7 @@ import com.vaadin.flow.spring.security.VaadinSecurityConfigurer;
 
 /**
  * Every route requires an authenticated reader, and the library each one sees is
- * their own — see {@code docs/issues/006}, which this closes.
+ * their own.
  *
  * <p>There is no Harbor login view: an unauthenticated request redirects straight to
  * Keycloak. A local form would only collect credentials Harbor has no business
