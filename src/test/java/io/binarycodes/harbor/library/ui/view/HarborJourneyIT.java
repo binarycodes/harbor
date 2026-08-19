@@ -71,7 +71,7 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
      *
      * <p>The cleanup runs on the test thread, which has been through no login, and the
      * owner refuses to guess. It is told which reader the journeys are about to sign in
-     * as — the realm export pins that user's id for exactly this.
+     * as — HarborIdentity pins that user's id for exactly this.
      *
      * <p>The navigation matters: the base class opens the page before this runs, so
      * without it the browser is still showing whatever the previous journey left

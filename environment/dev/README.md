@@ -25,10 +25,21 @@ throws the volumes away, which is how you get back to a first-run empty library.
 
 ## The realm
 
-`keycloak/harbor-realm.json` is a realm export, imported on first boot by
-`start-dev --import-realm`. One committed file rather than a scripted setup or a
-walk through the admin console, so a fresh checkout plus `./run.sh env up` is a
-working identity provider with no manual steps.
+Keycloak starts empty. `keycloak/init.mjs` then creates the realm over the admin REST
+API, from a `keycloak-init` container that runs once and exits — so a fresh checkout
+plus `./run.sh env up` is a working identity provider with no manual steps and no
+clicking through the admin console.
+
+Not a realm export imported with `--import-realm`. An export has to be an exactly
+correct `RealmRepresentation` or the container refuses to boot, and it says so through
+a Jackson "unrecognized field" error that names nothing about Keycloak. A wrong field
+here is an HTTP 400 that names it instead. The script asks before it creates, so
+re-running `./run.sh env up` is safe.
+
+Keycloak reports readiness on its management port, and the image carries no curl and no
+wget — so `keycloak/HealthCheck.java` is the probe, run straight from source by the
+image's own JVM. `keycloak-init` waits on that rather than on the port, because
+Keycloak binds long before it can answer.
 
 | | |
 |---|---|
@@ -37,12 +48,15 @@ working identity provider with no manual steps.
 | Reader | `reader` / `reader` |
 | Admin console | <http://localhost:8081>, `admin` / `admin` |
 
-The `reader` user's id is pinned in the file rather than generated. It is the `sub`
+The `reader` user's id is pinned in the script rather than generated. It is the `sub`
 in every token, so it is the `owner_id` of every row that user writes — and
 `HarborIdentity` in the test suite has to know it before anyone has logged in, to
-authenticate the thread that empties the library between journeys.
+authenticate the thread that empties the library between journeys. That fixture builds
+the same realm in Java against the same API, so **its constants and this script's have
+to agree** — and nothing but the test suite failing will say so if they drift.
 
-The client's redirect URI is `http://localhost:*/login/oauth2/code/keycloak`. The
+The client's redirect URI is `http://localhost:*/login/oauth2/code/keycloak`, where
+`keycloak` is Spring's registration id rather than the realm or the client. The
 wildcard port is what lets the integration tests work on a random one.
 
 **A second reader**, for checking that one library really is invisible to another:
@@ -64,6 +78,5 @@ that.
 
 Requires a container runtime with the Compose plugin (`docker compose` or the
 standalone `docker-compose`). The test suite needs the same runtime for a different
-reason: Testcontainers starts its own throwaway PostgreSQL, Chromium and Keycloak,
-and uses this file only for the realm export, which it copies into its own
-container.
+reason: Testcontainers starts its own throwaway PostgreSQL, Chromium and Keycloak, and
+sets the last of those up itself rather than using anything in this directory.

@@ -60,35 +60,56 @@ services:
   # as required as the database — the app fetches the issuer's discovery document at
   # startup and will not start without it.
   #
-  # The realm, its client and its one user all come from the committed export in
-  # keycloak/harbor-realm.json, imported on first boot: a fresh checkout gets a working
-  # identity provider with no clicking through the admin console. The test suite copies
-  # the same file into a container of its own, so there is one definition rather than
-  # two that drift.
+  # Started empty. The realm, its client and its one reader are created afterwards by
+  # keycloak-init, over the admin REST API.
   keycloak:
     image: quay.io/keycloak/keycloak:26.4
     container_name: harbor-dev-keycloak
-    command: ["start-dev", "--import-realm"]
+    command: ["start-dev"]
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: admin
       KC_BOOTSTRAP_ADMIN_PASSWORD: admin
       # The readiness endpoint lives on the management port, and only when asked for.
       KC_HEALTH_ENABLED: "true"
-    # 8081, because Keycloak's own default is Harbor's.
+    # 8081, because Keycloak's own default is Harbor's. The management port is not
+    # published: only the healthcheck below reaches it, from inside the container.
     ports:
       - "8081:8080"
     volumes:
-      - ./keycloak/harbor-realm.json:/opt/keycloak/data/import/harbor-realm.json:ro
-    # The image carries no curl or wget, so this probes the management port through
-    # bash the way the chromium service does. Not the realm endpoint, which would need
-    # an HTTP client: /health/ready reports before the import has finished, so `up
-    # --wait` returning is the container being up rather than the realm being ready.
+      - ./keycloak/HealthCheck.java:/tmp/HealthCheck.java:ro
+    # This image carries no curl and no wget, but it does carry a JVM — so the probe is
+    # a single Java source file. It asks /health/ready rather than testing whether a
+    # port is open, because Keycloak binds its ports long before it can answer, and
+    # keycloak-init below depends on this being true rather than merely started.
     healthcheck:
-      test: ["CMD-SHELL", "bash -c '</dev/tcp/127.0.0.1/9000' || exit 1"]
+      test: ["CMD", "java", "/tmp/HealthCheck.java", "http://localhost:9000/health/ready"]
       interval: 5s
-      timeout: 3s
-      retries: 20
+      timeout: 5s
+      retries: 30
     restart: unless-stopped
+
+  # Creates the realm, once, and exits. A script against the admin REST API rather
+  # than a realm export imported at boot: an export has to be an exactly correct
+  # RealmRepresentation or the container refuses to start, and says so through a
+  # Jackson field error that names nothing about Keycloak. Here a mistake is an HTTP
+  # 400 that names the field, and re-running is safe because the script asks before it
+  # creates.
+  keycloak-init:
+    image: node:24-alpine
+    container_name: harbor-dev-keycloak-init
+    depends_on:
+      keycloak:
+        condition: service_healthy
+    environment:
+      KC_URL: http://keycloak:8080
+      KC_ADMIN_USERNAME: admin
+      KC_ADMIN_PASSWORD: admin
+    volumes:
+      - ./keycloak/init.mjs:/tmp/init.mjs:ro
+    entrypoint: ["node", "/tmp/init.mjs"]
+    # It is meant to exit. Without this, compose restarts a container that has done its
+    # job and `up --wait` never settles.
+    restart: "no"
 
 volumes:
   harbor-dev-data:

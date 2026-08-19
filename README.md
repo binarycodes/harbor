@@ -476,9 +476,10 @@ Run the tests:
 Both start their own containers, so neither needs the development stack running: a
 PostgreSQL for anything touching the library, a Chromium for the archiver, and — for
 the end-to-end journeys, which sign in through Keycloak's real login form — a Keycloak
-importing the same realm export. `run.sh` finds the container engine from your docker
-context, which is what makes this work on Colima and Rancher Desktop — their socket
-lives under your home directory, where Testcontainers does not look on its own.
+that the fixture sets up over the admin API. `run.sh` finds the container engine from
+your docker context, which is what makes this work on Colima and Rancher Desktop —
+their socket lives under your home directory, where Testcontainers does not look on
+its own.
 
 Where containers cannot run at all, point the tests at your own instead. The unit
 tiers need only a database; the end-to-end journeys need all three and are not
