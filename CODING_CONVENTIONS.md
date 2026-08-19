@@ -127,3 +127,4 @@ Project-wide rules. Once a pattern is established here, follow it without prompt
 - Verify each change visually or by test before declaring done.
 - Preserve look-and-feel during refactors; a pixel change is a separate task.
 - Refactor in small focused steps — extract, rename, run tests, then move on.
+- **The README describes the application as it is now**, not as it was or as it might become. No migration notes, no historical asides, no upgrade paths for a scenario an earlier version left behind. Behaviour the code still performs is current state and belongs there — the import of a library from browser storage, for instance, because `LegacyLibraryImport` still runs it on first open. Advice for data nobody has is not. When a feature changes or a concern is dropped, the README text that existed only to serve it goes in the same change.

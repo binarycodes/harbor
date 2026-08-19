@@ -375,22 +375,6 @@ names nothing useful in either log. If you see one, compare
 `curl -s https://your-keycloak/realms/harbor | grep issuer` against
 `HARBOR_OIDC_ISSUER_URI`. They will differ.
 
-#### Upgrading from a version without accounts
-
-Everything saved before accounts belongs to the shared owner `public`, and every
-query is scoped by owner — so a signed-in reader sees an empty library rather than
-that data. Nothing is deleted, and nothing is adopted automatically, because no
-automatic answer is right for an instance more than one person used. If the old
-library was yours alone, claim it once you know your subject:
-
-```sql
-update bookmark set owner_id = '<your-sub>' where owner_id = 'public';
-update bookmark_archive set owner_id = '<your-sub>' where owner_id = 'public';
-```
-
-The `public` rows are invisible rather than gone: every query is scoped by owner and no
-subject is ever the literal `public`, so they cost disk and nothing else.
-
 ### Serve over HTTPS (recommended)
 
 Run the app behind a TLS-terminating reverse proxy (Caddy, Traefik, nginx, your
