@@ -5,6 +5,8 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import jakarta.annotation.security.PermitAll;
+
 import com.vaadin.flow.component.AttachEvent;
 import com.vaadin.flow.component.DetachEvent;
 import com.vaadin.flow.component.UI;
@@ -33,7 +35,13 @@ import io.binarycodes.harbor.library.ui.view.ReaderView;
  * <p>The library is only known once the browser has answered with what it has
  * stored, so the sidebar fills itself in from a change listener rather than at
  * construction.
+ *
+ * <p>Annotated in its own right, and not redundantly: navigation access control checks
+ * every parent layout a route names as well as the route, and denies the route when the
+ * layout is the less permissive of the two. An unannotated shell therefore turns every
+ * screen behind it into a RouteNotFoundError.
  */
+@PermitAll
 public class MainLayout extends AppLayout {
 
     private final LibraryPresenter presenter;

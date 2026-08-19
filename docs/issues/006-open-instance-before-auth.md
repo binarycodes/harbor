@@ -64,8 +64,9 @@ What did change:
   view; an unauthenticated request goes straight to Keycloak. Logout goes through
   `OidcClientInitiatedLogoutSuccessHandler`, without which Keycloak's session
   outlives Harbor's and the next visit signs straight back in.
-- The four routes carry `@PermitAll`. With navigation access control on, a route
-  with no annotation is denied — which is now the convention.
+- The four routes carry `@PermitAll`, and so does `MainLayout`. With navigation
+  access control on, a route with no annotation is denied — and so is a route whose
+  parent layout has none, which is the easier half to miss.
 - Authorization is nothing more than "authenticated". No roles. Ownership does the
   rest, in SQL.
 
