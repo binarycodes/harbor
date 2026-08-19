@@ -59,9 +59,12 @@ through `HarborIdentity`, which builds its own realm and hands its own client id
 secret to Spring — so a journey depends on nothing in this directory, and these values
 and that fixture's are free to differ.
 
-The client's redirect URI is `http://localhost:*/login/oauth2/code/keycloak`, where
-`keycloak` is Spring's registration id rather than the realm or the client. The
-wildcard port is what lets the integration tests work on a random one.
+The client accepts `*` as its redirect URI. A realm's redirect URIs are not Harbor's
+to get right — a deployment adds Harbor's exact callback
+(`https://your-harbor/login/oauth2/code/keycloak`, where `keycloak` is Spring's
+registration id rather than the realm or the client) to a realm it already runs, very
+likely alongside other applications. What this realm exists to prove is that Harbor
+speaks OIDC, so it accepts whatever port a laptop or a test happens to be on.
 
 **A second reader**, for checking that one library really is invisible to another:
 add a user in the admin console, give it a password, and sign in as it from a
@@ -69,11 +72,11 @@ private window.
 
 ## What is fine here and nowhere else
 
-Every credential in this directory is published and guessable — `harbor`/`harbor`
-on a published 5432, `admin`/`admin` on the Keycloak console, a client secret in
-version control, and a realm that accepts a redirect back to any localhost port. A
-wildcard redirect URI is normally a finding, and it is one here too if this file
-ever reaches a machine anyone else can reach.
+Every credential in this directory is published and guessable — `harbor`/`harbor` on a
+published 5432, `admin`/`admin` on the Keycloak console, a client secret in version
+control, and a client that will redirect anywhere at all. An unrestricted redirect URI
+is normally a finding, and it is one here too the moment this reaches a machine anyone
+else can reach.
 
 **This is a laptop's configuration.** A deployment sets `HARBOR_DB_*`,
 `HARBOR_BROWSER_URL` and the `HARBOR_OIDC_*` trio against a realm of its own, with

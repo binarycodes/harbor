@@ -3,7 +3,7 @@
 #
 # Every credential here is published and guessable — harbor/harbor on a published
 # 5432, admin/admin on the Keycloak console, a client secret in version control and a
-# realm that accepts any localhost port back. That is only acceptable because this
+# client that will redirect anywhere at all. That is only acceptable because this
 # file is for a laptop: nothing here belongs on a machine anyone else can reach. A
 # deployment sets HARBOR_DB_URL, HARBOR_DB_USER, HARBOR_DB_PASSWORD,
 # HARBOR_BROWSER_URL and the HARBOR_OIDC_* trio against a realm of its own, and the

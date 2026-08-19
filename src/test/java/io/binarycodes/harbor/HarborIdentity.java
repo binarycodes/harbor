@@ -125,9 +125,9 @@ public final class HarborIdentity {
                   "publicClient": false,
                   "standardFlowEnabled": true,
                   "directAccessGrantsEnabled": false,
-                  "redirectUris": ["http://localhost:*/login/oauth2/code/keycloak"],
-                  "webOrigins": ["http://localhost:*"],
-                  "attributes": { "post.logout.redirect.uris": "http://localhost:*" }
+                  "redirectUris": ["*"],
+                  "webOrigins": ["*"],
+                  "attributes": { "post.logout.redirect.uris": "*" }
                 }
                 """.formatted(CLIENT_ID, CLIENT_SECRET));
         post(baseUrl + "/admin/realms/" + REALM + "/users", token, """

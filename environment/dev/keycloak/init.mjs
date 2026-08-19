@@ -12,9 +12,8 @@
  * step GETs what it is about to create and returns early if it is already there.
  *
  * Every value here is a laptop's. The client secret is in version control and the
- * redirect URI accepts any localhost port, which is what lets the integration tests
- * work on a random one. A deployment configures its own realm and shares nothing with
- * this file.
+ * client will redirect anywhere at all. A deployment configures its own realm — very
+ * likely one it already runs for other applications — and shares nothing with this file.
  */
 
 const keycloakUrl = process.env.KC_URL;
@@ -119,14 +118,15 @@ const createClient = async () => {
         implicitFlowEnabled: false,
         directAccessGrantsEnabled: false,
         serviceAccountsEnabled: false,
-        // The wildcard port is what lets the integration tests run on a random one.
-        // 'keycloak' is Spring's registration id from application.properties, not the
-        // realm or the client id — Spring builds this callback path from that key.
-        redirectUris: ['http://localhost:*/login/oauth2/code/keycloak'],
-        webOrigins: ['http://localhost:*'],
+        // Wide open, because a realm's redirect URIs are not Harbor's business to get
+        // right — a deployment adds Harbor's exact callback to a realm it already runs,
+        // very likely alongside other applications. This one exists so a laptop and a test
+        // suite can log in on whatever port they happen to be using.
+        redirectUris: ['*'],
+        webOrigins: ['*'],
         attributes: {
             // Without this, signing out lands on a Keycloak error page instead of Harbor.
-            'post.logout.redirect.uris': 'http://localhost:*'
+            'post.logout.redirect.uris': '*'
         }
     }, `client '${clientId}'`);
 };

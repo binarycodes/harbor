@@ -462,7 +462,7 @@ frontend is rebuilt on the fly in development
 mode; the first start downloads npm dependencies and takes a little longer.
 
 Those credentials, the `harbor-dev-secret` client secret in version control and the
-realm's wildcard redirect URI are all fine on a laptop and nowhere else;
+client that will redirect anywhere are all fine on a laptop and nowhere else;
 [`environment/dev/README.md`](environment/dev/README.md) says which is which, and how
 to add a second reader for checking that one library really is invisible to another.
 
