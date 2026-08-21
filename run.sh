@@ -53,6 +53,12 @@ readonly IT_PROFILE="it"
 # then a checkout that is not a git repository builds fine.
 readonly COMMIT_PROPERTY="build.commit"
 
+# Tasks a project has that this runner does not: a file of task_<name> functions,
+# sourced below the helpers so they can call setup and run_mvn like the tasks here
+# do. Keeping them out of this file is what lets a project take a newer runner
+# without a merge. It may also define project_usage, printed under the task list.
+readonly PROJECT_TASKS_FILE="run.tasks.sh"
+
 # ---------------------------------------------------------------------------
 
 readonly DEV_COMPOSE_FILE="${ENV_DIR}/compose.yaml"
@@ -470,6 +476,9 @@ Tasks:
   clean      mvn clean + remove cached bundles
   help       Show this message
 EOF
+    if declare -F project_usage >/dev/null; then
+        project_usage
+    fi
 }
 
 main() {
@@ -488,12 +497,23 @@ main() {
         clean)   task_clean ;;
         help|-h|--help) usage ;;
         *)
-            echo "Unknown task: ${task}" >&2
-            echo >&2
-            usage >&2
-            exit 1
+            # Anything the project's own task file defines, dispatched by name. Only
+            # a declared function matches, so a mistyped task is still a mistyped
+            # task rather than a silent no-op.
+            if declare -F "task_${task}" >/dev/null; then
+                "task_${task}" "${@:2}"
+            else
+                echo "Unknown task: ${task}" >&2
+                echo >&2
+                usage >&2
+                exit 1
+            fi
             ;;
     esac
 }
+
+if [[ -n "${PROJECT_TASKS_FILE}" && -f "${PROJECT_TASKS_FILE}" ]]; then
+    source "./${PROJECT_TASKS_FILE}"
+fi
 
 main "$@"
