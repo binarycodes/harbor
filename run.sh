@@ -29,8 +29,15 @@ readonly JAVA_VERSION="21"
 readonly ENV_DIR="environment/dev"
 
 # The prefix every container and volume of that stack is named with, which is how
-# `env reset` finds the storage to throw away without naming each volume.
-readonly CONTAINER_PREFIX="harbor-dev"
+# `env reset` finds the storage to throw away without naming each volume. Lowercased,
+# because the name above is written for reading and a container name is not.
+readonly CONTAINER_PREFIX="${PROJECT_NAME,,}-dev"
+
+# Whether this project needs a container runtime at all. When true, every task
+# resolves one up front and stops if there is none — the application does not start
+# without the services it talks to, and the tests bring their own. Set it to false for
+# a project that talks to nothing, and no task will look for docker or podman.
+readonly CONTAINER_REQUIRED="true"
 
 # Vaadin's own defaults, and the entry stylesheet whose @imports the browser caches.
 readonly BUNDLE_DIR="src/main/bundles"
@@ -179,19 +186,22 @@ resolve_maven() {
 # with it, and the container runtime. Resolved together, in one place, so that a task
 # body is the work it is named after and nothing else.
 #
-# The runtime is not only the test suite's concern, which is why this is not left to
-# the tasks that obviously want it: the application itself will not start without the
-# browser it archives with or the issuer it authenticates against, and `package` runs
-# the tests on the way through. A machine missing any of the three is told so before
-# the work starts rather than partway into it.
+# The runtime is not only the test suite's concern, which is why a project that needs
+# one resolves it here rather than in the tasks that obviously want it: the application
+# itself will not start without the services it talks to, and `package` runs the tests
+# on the way through. A machine missing any of it is told so before the work starts
+# rather than partway into it.
 #
-# Deliberately without exceptions, even for the tasks that never reach for a
-# container. Touching a stylesheet on a machine that cannot run the application
-# accomplishes nothing, and failing at the first task is what says so.
+# No exceptions among the tasks either, not even the ones that never reach for a
+# container: touching a stylesheet on a machine that cannot run the application
+# accomplishes nothing, and failing at the first task is what says so. CONTAINER_REQUIRED
+# is the one switch, and it is the project's answer rather than the task's.
 setup() {
     resolve_java_home
     resolve_maven
-    resolve_container_runtime
+    if [[ "${CONTAINER_REQUIRED}" == "true" ]]; then
+        resolve_container_runtime
+    fi
 }
 
 # Every build carries the deployed commit SHA when the project asks for one, so an
@@ -353,6 +363,12 @@ compose_env() {
 # service needs no change here.
 task_env() {
     setup
+
+    if [[ "${CONTAINER_REQUIRED}" != "true" ]]; then
+        echo "CONTAINER_REQUIRED is ${CONTAINER_REQUIRED}: this project is configured to need" >&2
+        echo "no containers, so there is no development stack for this task to bring up." >&2
+        exit 1
+    fi
 
     local action="${1:-up}"
     case "${action}" in
