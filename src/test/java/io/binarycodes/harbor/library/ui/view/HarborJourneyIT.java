@@ -118,7 +118,9 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
     @Test
     @DisplayName("arrives signed in, and is told which account they are in")
     void arrivesSignedIn() {
-        assertThat(page.locator(".account-footer-name")).hasText(HarborIdentity.USERNAME);
+        click(page.locator(".account-avatar"));
+
+        assertThat(page.locator(".account-menu-name")).hasText(HarborIdentity.FULL_NAME);
     }
 
     /**
@@ -129,7 +131,8 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
     @Test
     @DisplayName("signs out, and has to ask again on the way back")
     void signsOutForReal() {
-        click(page.locator(".account-footer-sign-out"));
+        click(page.locator(".account-avatar"));
+        click(page.locator(".account-menu-sign-out"));
 
         // Signing out lands back on Harbor, which needs a reader, which sends the
         // browser to Keycloak — so the form appearing is the round trip completing.

@@ -48,8 +48,7 @@ public class MainLayout extends AppLayout {
     private final LibraryFilter libraryFilter;
     private final LibraryNavigation navigation = new LibraryNavigation();
     private final TagFilterList tagFilters;
-    private final StorageFooter storageFooter;
-    private final AccountFooter accountFooter;
+    private final SidebarFooter sidebarFooter;
     private final SaveLinkDialog saveLinkDialog;
     private final List<Registration> registrations = new ArrayList<>();
 
@@ -60,8 +59,7 @@ public class MainLayout extends AppLayout {
         this.presenter = presenter;
         this.libraryFilter = libraryFilter;
         tagFilters = new TagFilterList(presenter, libraryFilter);
-        storageFooter = new StorageFooter(presenter);
-        accountFooter = new AccountFooter(authenticationContext);
+        sidebarFooter = new SidebarFooter(presenter, authenticationContext);
         saveLinkDialog = new SaveLinkDialog(presenter, this::openReader);
 
         setPrimarySection(Section.DRAWER);
@@ -88,7 +86,7 @@ public class MainLayout extends AppLayout {
 
     private VerticalLayout sidebar() {
         VerticalLayout sidebar = new VerticalLayout(new SidebarBrand(), saveLinkButton(), navigation,
-                tagFilters, storageFooter, accountFooter);
+                tagFilters, sidebarFooter);
         sidebar.addClassName("sidebar");
         sidebar.setSizeFull();
         sidebar.setPadding(false);
@@ -147,7 +145,7 @@ public class MainLayout extends AppLayout {
         navigation.refresh(presenter.count(), presenter.countReadLater(),
                 presenter.countHighlights());
         tagFilters.refresh();
-        storageFooter.refresh();
+        sidebarFooter.refresh();
     }
 
     private Set<String> knownTags() {

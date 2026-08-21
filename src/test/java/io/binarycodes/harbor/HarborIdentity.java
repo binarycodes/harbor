@@ -46,6 +46,12 @@ public final class HarborIdentity {
     public static final String USERNAME = "reader";
     public static final String PASSWORD = "reader";
 
+    /**
+     * What the realm's firstName and lastName below add up to, which is the name Harbor
+     * shows the reader. Kept beside them so the two cannot drift apart.
+     */
+    public static final String FULL_NAME = "Harbor Reader";
+
     private static String readerSubject;
 
     /**

@@ -156,14 +156,14 @@ vaadin-app-layout:not([overlay])::part(navbar) {
     expand: an empty library hides that list, and a display:none flex child leaves
     the layout entirely, taking its flex-grow with it and letting the footer ride up.
 */
-.storage-footer {
+.sidebar-footer {
     gap: 8px;
     padding: 12px 8px 4px;
     margin-top: auto;
     border-top: 1px solid var(--vaadin-border-color-secondary);
 }
 
-.storage-footer-indicator {
+.sidebar-footer-indicator {
     width: 8px;
     height: 8px;
     flex-shrink: 0;
@@ -172,49 +172,55 @@ vaadin-app-layout:not([overlay])::part(navbar) {
     box-shadow: 0 0 0 3px var(--color-storage-online-ring);
 }
 
-.storage-footer-status {
+.sidebar-footer-status {
     line-height: 1.3;
 }
 
-.storage-footer-heading {
+.sidebar-footer-heading {
     font-size: var(--aura-font-size-s);
     color: var(--vaadin-text-color-secondary);
 }
 
-.storage-footer-count {
+.sidebar-footer-count {
     font-size: var(--aura-font-size-xs);
     color: var(--color-text-tertiary);
 }
 
 /*
-    Under the storage footer, which is the child carrying the auto margin that pins
-    the pair to the bottom. This one takes no margin of its own: two auto margins
-    would split the slack between them and leave a gap in the middle of the drawer.
+    The avatar is the menu's target, so it is what a reader clicks. It carries no
+    button chrome of its own, and the pointer is the only thing saying it is not
+    merely a picture of them.
 */
-.account-footer {
-    gap: 8px;
-    padding: 8px 8px 4px;
-    border-top: 1px solid var(--vaadin-border-color-secondary);
+.account-avatar {
+    flex-shrink: 0;
+    cursor: pointer;
 }
 
-.account-footer-reader {
-    line-height: 1.3;
-    min-width: 0;
-}
-
-.account-footer-heading {
-    font-size: var(--aura-font-size-xs);
-    color: var(--color-text-tertiary);
+.account-menu {
+    --vaadin-popover-content-padding: 4px;
 }
 
 /*
-    A realm can hand back a name of any length, and the drawer is a fixed column:
-    without this a long one widens the footer past it rather than wrapping.
+    A realm can hand back a name of any length, and this menu is as wide as its items
+    make it: without this a long one widens the menu rather than being cut short.
 */
-.account-footer-name {
+.account-menu-name {
+    display: block;
     overflow: hidden;
-    font-size: var(--aura-font-size-s);
+    padding: 8px 8px 4px;
+    font-size: var(--aura-font-size-l);
+    font-weight: 600;
     color: var(--vaadin-text-color-secondary);
     text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/*
+    Items read as rows of a menu rather than as buttons in a row: full width, text
+    against the leading edge, and the icon ahead of it in the same place on each.
+*/
+.account-menu-item {
+    width: 100%;
+    justify-content: flex-start;
     white-space: nowrap;
 }
