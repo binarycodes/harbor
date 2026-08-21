@@ -449,21 +449,29 @@ task_clean() {
     "${MAVEN}" clean
 }
 
+# Describes only what this runner does, never what a project's build is configured to
+# do with it: shared text that claims a coverage gate or a browser test is wrong for
+# the first project that has neither, and a listed task that then refuses is worse
+# than one that was never offered.
 usage() {
-    cat <<'EOF'
-Usage: ./run.sh <task>
-
-Tasks:
+    echo "Usage: ./run.sh <task>"
+    echo
+    echo "Tasks:"
+    if [[ "${CONTAINER_REQUIRED}" == "true" ]]; then
+        cat <<'EOF'
   env [act]  The whole development stack — quadlets under podman, compose under
              docker: up (default), down, logs, reset (throws the data away)
+EOF
+    fi
+    cat <<'EOF'
   deps       Pre-download dependencies and build plugins, so a later task
              needs no network
   compile    Compile sources (triggers a devtools hot-restart of a running app)
   bundle     Clear cached frontend bundles + touch styles.css + recompile
              (use after changing a @CssImport themeFor / @JsModule)
   styles     Touch styles.css so the browser reloads @imported CSS partials
-  test       Run the unit tests (enforces the JaCoCo coverage gate)
-  verify     Unit tests + Playwright integration tests (mvn clean verify)
+  test       Run the unit tests (mvn test)
+  verify     Unit tests + integration tests (mvn clean verify)
   run        Start the app with spring-boot:run (dev mode)
   preview    Alias of run, launched by the Claude Code preview pane
   package    Full production build (mvn clean package)
