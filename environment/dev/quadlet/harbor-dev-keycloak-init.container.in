@@ -16,7 +16,7 @@ After=harbor-dev-keycloak.service
 ContainerName=harbor-dev-keycloak-init
 Image=docker.io/library/node:24-alpine
 Network=harbor-dev.network
-Volume=@HARBOR_ENV_DIR@/keycloak/init.mjs:/tmp/init.mjs:ro,z
+Volume=@ENV_DIR@/keycloak/init.mjs:/tmp/init.mjs:ro,z
 
 Environment=KC_URL=http://keycloak:8080
 Environment=KC_ADMIN_USERNAME=admin

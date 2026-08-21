@@ -1,34 +1,68 @@
 #!/usr/bin/env bash
 #
-# Task runner for the Harbor app.
+# Task runner for a Vaadin and Spring Boot project, built with Maven.
 #
-# Every task pins JAVA_HOME to a JDK 21 because a bare `mvn` on this machine
-# picks JDK 25, under which Lombok silently fails to generate getters/setters
-# and the build dies with bogus "cannot find symbol" errors.
+# Every task pins JAVA_HOME to the JDK the project is built for, because a bare
+# `mvn` picks whatever the machine defaults to — and under a newer JDK than Lombok
+# supports it silently generates no getters, so the build dies with bogus
+# "cannot find symbol" errors.
 #
-# Usage: ./run.sh <task>   (run with no task, or `help`, to list tasks)
+# Everything specific to one project is in the configuration block below; nothing
+# under it names a project. Usage: ./run.sh <task> (or `help` to list tasks).
 
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
+# ---------------------------------------------------------------------------
+# Project configuration. A different project changes these and nothing else.
+# ---------------------------------------------------------------------------
+
+# Named in what the tasks print, so the messages say whose stack came up.
+readonly PROJECT_NAME="Harbor"
+
+# The JDK to build with, matched as a prefix against SDKMAN's candidates.
+readonly JAVA_VERSION="21"
+
+# Where the development stack is defined: compose.yaml for docker, quadlet/ for
+# podman. Both are read from here, never listed in this script.
+readonly ENV_DIR="environment/dev"
+
+# The prefix every container and volume of that stack is named with, which is how
+# `env reset` finds the storage to throw away without naming each volume.
+readonly CONTAINER_PREFIX="harbor-dev"
+
+# Vaadin's own defaults, and the entry stylesheet whose @imports the browser caches.
 readonly BUNDLE_DIR="src/main/bundles"
-readonly DEV_COMPOSE_FILE="environment/dev/compose.yaml"
-readonly QUADLET_DIR="environment/dev/quadlet"
-readonly QUADLET_INSTALL_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/containers/systemd"
 readonly STYLES_CSS="src/main/resources/META-INF/resources/styles.css"
+
+# The profile that puts the integration tests in production mode. Empty for a
+# project whose `verify` needs no profile.
+readonly IT_PROFILE="it"
+
+# A property carrying the deployed commit SHA, passed to every mvn invocation.
+# Harbor's enforcer plugin rejects a build without it, which is what makes every
+# artefact traceable to a commit. Empty for a project that does not ask for one —
+# then a checkout that is not a git repository builds fine.
+readonly COMMIT_PROPERTY="build.commit"
+
+# ---------------------------------------------------------------------------
+
+readonly DEV_COMPOSE_FILE="${ENV_DIR}/compose.yaml"
+readonly QUADLET_DIR="${ENV_DIR}/quadlet"
+readonly QUADLET_INSTALL_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/containers/systemd"
 
 # Filled in by setup, and the only mvn any task runs.
 MAVEN=""
 
-# Resolve a JDK 21 from SDKMAN; fall back to whatever JAVA_HOME is already set.
+# Resolve the configured JDK from SDKMAN; fall back to whatever JAVA_HOME is set.
 resolve_java_home() {
-    local jdk21
-    jdk21=$(ls -d "${HOME}"/.sdkman/candidates/java/21* 2>/dev/null | head -1 || true)
-    if [[ -n "${jdk21}" ]]; then
-        export JAVA_HOME="${jdk21}"
+    local jdk
+    jdk=$(ls -d "${HOME}"/.sdkman/candidates/java/"${JAVA_VERSION}"* 2>/dev/null | head -1 || true)
+    if [[ -n "${jdk}" ]]; then
+        export JAVA_HOME="${jdk}"
     elif [[ -z "${JAVA_HOME:-}" ]]; then
-        echo "No JDK 21 found under ~/.sdkman and JAVA_HOME is unset." >&2
+        echo "No JDK ${JAVA_VERSION} found under ~/.sdkman and JAVA_HOME is unset." >&2
         exit 1
     fi
     echo "Using JAVA_HOME=${JAVA_HOME}"
@@ -152,26 +186,30 @@ resolve_maven() {
 # the work starts rather than partway into it.
 #
 # Deliberately without exceptions, even for the tasks that never reach for a
-# container. Touching a stylesheet on a machine that cannot run Harbor accomplishes
-# nothing, and failing at the first task is what says so.
+# container. Touching a stylesheet on a machine that cannot run the application
+# accomplishes nothing, and failing at the first task is what says so.
 setup() {
     resolve_java_home
     resolve_maven
     resolve_container_runtime
 }
 
-# Every mvn build must carry the deployed commit SHA — the enforcer plugin fails
-# the build without a valid build.commit. Resolve it once from the working tree
-# and pass it to every mvn invocation. A non-repo checkout is a hard error by
-# design: an unidentifiable build should never be produced.
+# Every build carries the deployed commit SHA when the project asks for one, so an
+# artefact can be traced back to what produced it. Resolved from the working tree and
+# passed to every mvn invocation. A non-repo checkout is then a hard error by design:
+# an unidentifiable build should never be produced.
 run_mvn() {
-    local commit
-    if ! commit=$(git rev-parse HEAD 2>/dev/null); then
-        echo "Cannot resolve the git commit (not a git repository?)." >&2
-        echo "build.commit is mandatory; refusing to build." >&2
-        exit 1
+    local -a properties=()
+    if [[ -n "${COMMIT_PROPERTY}" ]]; then
+        local commit
+        if ! commit=$(git rev-parse HEAD 2>/dev/null); then
+            echo "Cannot resolve the git commit (not a git repository?)." >&2
+            echo "${COMMIT_PROPERTY} is mandatory; refusing to build." >&2
+            exit 1
+        fi
+        properties+=("-D${COMMIT_PROPERTY}=${commit}")
     fi
-    "${MAVEN}" "$@" -Dbuild.commit="${commit}"
+    "${MAVEN}" "$@" "${properties[@]}"
 }
 
 # Bump styles.css mtime. styles.css is only @import statements; editing an
@@ -245,7 +283,7 @@ install_quadlets() {
     mkdir -p "${QUADLET_INSTALL_DIR}"
     local unit
     for unit in "${QUADLET_DIR}"/*.in; do
-        sed "s|@HARBOR_ENV_DIR@|${PWD}/environment/dev|g" \
+        sed "s|@ENV_DIR@|${PWD}/${ENV_DIR}|g" \
             "${unit}" > "${QUADLET_INSTALL_DIR}/$(basename "${unit}" .in)"
     done
     systemctl --user daemon-reload
@@ -266,7 +304,7 @@ quadlet_env() {
         up)
             install_quadlets
             systemctl --user start "${services[@]}"
-            echo "Development stack is up. Harbor needs no configuration to reach it."
+            echo "Development stack is up. ${PROJECT_NAME} needs no configuration to reach it."
             echo "It is started, not enabled: add 'systemctl --user enable' yourself to"
             echo "get it back after a reboot."
             ;;
@@ -287,7 +325,7 @@ quadlet_env() {
             # Every volume of the stack rather than a named one, for the same reason
             # the services are read from a directory: this should not need editing
             # when the stack gains storage.
-            podman volume ls --filter name=harbor-dev --quiet \
+            podman volume ls --filter name="${CONTAINER_PREFIX}" --quiet \
                 | xargs --no-run-if-empty podman volume rm --force >/dev/null
             echo "Development stack stopped and its data thrown away."
             ;;
@@ -300,20 +338,19 @@ compose_env() {
         # --wait rather than plain -d: every service declares a healthcheck, and the
         # app starting before them is what turns a slow container into a confusing
         # connection or discovery error at startup.
-        up)    compose up -d --wait && echo "Development stack is up. Harbor needs no configuration to reach it." ;;
+        up)    compose up -d --wait && echo "Development stack is up. ${PROJECT_NAME} needs no configuration to reach it." ;;
         down)  compose stop && echo "Development stack stopped; its data is kept." ;;
         logs)  compose logs -f ;;
         reset) compose down -v && echo "Development stack stopped and its data thrown away." ;;
     esac
 }
 
-# The whole development stack, because Harbor needs all of it: the library lives in
-# Postgres, a page that cannot be archived is not saved, and login is mandatory on
-# every route.
+# The whole development stack in one task, because an application that needs a
+# database, a browser and an identity provider needs all of them.
 #
-# Which containers that means is never this function's decision — compose reads
-# environment/dev/compose.yaml, quadlets come from environment/dev/quadlet — so
-# adding a service needs no change here.
+# Which containers that means is never this function's decision — compose reads the
+# stack's compose.yaml, quadlets come from its quadlet directory — so adding a
+# service needs no change here.
 task_env() {
     setup
 
@@ -349,7 +386,7 @@ task_deps() {
 
 task_test() {
     setup
-    # JaCoCo enforces an 80% line-coverage gate on the */service packages.
+    # The pom's JaCoCo gate runs with these, and fails the task under its threshold.
     run_mvn test "$@"
 }
 
@@ -360,7 +397,7 @@ task_run() {
 
 # Same as `run`, but named for the Claude Code preview pane, which launches the
 # app through this task (see .claude/launch.json) so the preview goes through
-# run.sh — pinned JDK 21 and the bundle gotchas — like every other task, instead
+# run.sh — the pinned JDK and the bundle gotchas — like every other task, instead
 # of invoking mvn directly.
 task_preview() {
     task_run
@@ -368,7 +405,7 @@ task_preview() {
 
 # Unit tests plus the Playwright integration tests, against a production build.
 #
-# -Pit is what puts the app in production mode; without it the ITs open a
+# The IT profile is what puts the app in production mode; without it the ITs open a
 # dev-mode page and find an empty screen. The bundles are cleared first because a
 # dev.bundle left behind by `./run.sh run` makes the frontend build decide "a
 # production mode bundle build is not needed" and the app then serves a bundle
@@ -377,7 +414,11 @@ task_preview() {
 task_verify() {
     setup
     clear_bundles
-    run_mvn clean verify -Pit "$@"
+    local -a profile=()
+    if [[ -n "${IT_PROFILE}" ]]; then
+        profile+=("-P${IT_PROFILE}")
+    fi
+    run_mvn clean verify "${profile[@]}" "$@"
 }
 
 # Full production build.

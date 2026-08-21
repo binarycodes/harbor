@@ -16,7 +16,7 @@ NetworkAlias=keycloak
 # 8081, because Keycloak's own default is Harbor's. The management port is not
 # published: only the healthcheck below reaches it, from inside the container.
 PublishPort=8081:8080
-Volume=@HARBOR_ENV_DIR@/keycloak/HealthCheck.java:/tmp/HealthCheck.java:ro,z
+Volume=@ENV_DIR@/keycloak/HealthCheck.java:/tmp/HealthCheck.java:ro,z
 
 Environment=KC_BOOTSTRAP_ADMIN_USERNAME=admin
 Environment=KC_BOOTSTRAP_ADMIN_PASSWORD=admin
