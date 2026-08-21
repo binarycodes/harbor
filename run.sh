@@ -88,7 +88,7 @@ clear_bundles() {
 
 task_compile() {
     resolve_java_home
-    run_mvn -o -q compile
+    run_mvn -q compile
     echo "Compiled. spring-boot-devtools will hot-restart a running app."
 }
 
@@ -98,7 +98,7 @@ task_bundle() {
     resolve_java_home
     clear_bundles
     touch_styles
-    run_mvn -o -q compile
+    run_mvn -q compile
     echo "Bundle cleared and recompiled. Reload the browser to pick up the new bundle."
 }
 
@@ -142,29 +142,34 @@ task_env() {
     esac
 }
 
-# Fetch dependencies. Every other task builds offline, which is what makes a
-# newly added dependency fail with a resolution error rather than downloading it.
+# Warm the local Maven repository ahead of a build, so a later task needs no
+# network. dependency:resolve would walk the dependency tree alone and leave the
+# build plugins out; go-offline takes both.
+#
+# It cannot be exhaustive: surefire picks its provider (surefire-junit-platform)
+# off the test classpath as it runs, and no resolution goal sees that in advance.
+# The first `test` downloads it. That is a slow first run, not a broken one.
 task_deps() {
     resolve_java_home
-    run_mvn --batch-mode --no-transfer-progress dependency:resolve
+    run_mvn --batch-mode --no-transfer-progress dependency:go-offline
 }
 
 task_test() {
     resolve_java_home
     resolve_docker_host
     # JaCoCo enforces an 80% line-coverage gate on the */service packages.
-    run_mvn -o test "$@"
+    run_mvn test "$@"
 }
 
 task_run() {
     resolve_java_home
-    run_mvn -o spring-boot:run
+    run_mvn spring-boot:run
 }
 
 # Same as `run`, but named for the Claude Code preview pane, which launches the
 # app through this task (see .claude/launch.json) so the preview goes through
-# run.sh — pinned JDK 21 and the offline/bundle gotchas — like every other task,
-# instead of invoking mvn directly.
+# run.sh — pinned JDK 21 and the bundle gotchas — like every other task, instead
+# of invoking mvn directly.
 task_preview() {
     task_run
 }
@@ -193,7 +198,7 @@ task_package() {
 task_clean() {
     resolve_java_home
     clear_bundles
-    mvn -o clean
+    mvn clean
 }
 
 usage() {
@@ -203,7 +208,8 @@ Usage: ./run.sh <task>
 Tasks:
   env [act]  Everything in environment/dev/compose.yaml: up (default), down, logs,
              reset (throws the data away)
-  deps       Download newly added dependencies (every other task builds offline)
+  deps       Pre-download dependencies and build plugins, so a later task
+             needs no network
   compile    Compile sources (triggers a devtools hot-restart of a running app)
   bundle     Clear cached frontend bundles + touch styles.css + recompile
              (use after changing a @CssImport themeFor / @JsModule)
