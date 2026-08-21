@@ -29,7 +29,7 @@ public record ArchiveProperties(String browserUrl, Duration browserTimeout, int 
                     "harbor.archive.browser-url must name a Chromium DevTools endpoint"
                             + " (e.g. http://chromium:9222). Harbor archives every page it saves and"
                             + " will not save a page it cannot archive, so it cannot start without"
-                            + " one. See environment/dev/compose.yaml.");
+                            + " one. See environment/dev.");
         }
         browserTimeout = browserTimeout == null ? Duration.ofSeconds(30) : browserTimeout;
         viewportWidth = viewportWidth <= 0 ? 1280 : viewportWidth;
