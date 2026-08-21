@@ -18,6 +18,9 @@ readonly QUADLET_DIR="environment/dev/quadlet"
 readonly QUADLET_INSTALL_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/containers/systemd"
 readonly STYLES_CSS="src/main/resources/META-INF/resources/styles.css"
 
+# Filled in by setup, and the only mvn any task runs.
+MAVEN=""
+
 # Resolve a JDK 21 from SDKMAN; fall back to whatever JAVA_HOME is already set.
 resolve_java_home() {
     local jdk21
@@ -122,7 +125,8 @@ resolve_container_runtime() {
 # depending on how this script happened to be started.
 resolve_maven() {
     if command -v mvn >/dev/null 2>&1; then
-        echo "mvn"
+        MAVEN="mvn"
+        echo "Using MAVEN=${MAVEN} (from the PATH)"
         return
     fi
     local candidate
@@ -133,7 +137,27 @@ resolve_maven() {
         echo "Install Maven, or start this from a shell where SDKMAN is initialised." >&2
         exit 1
     fi
-    echo "${candidate}"
+    MAVEN="${candidate}"
+    echo "Using MAVEN=${MAVEN}"
+}
+
+# What every task needs before it can do anything: the pinned JDK, the mvn that goes
+# with it, and the container runtime. Resolved together, in one place, so that a task
+# body is the work it is named after and nothing else.
+#
+# The runtime is not only the test suite's concern, which is why this is not left to
+# the tasks that obviously want it: the application itself will not start without the
+# browser it archives with or the issuer it authenticates against, and `package` runs
+# the tests on the way through. A machine missing any of the three is told so before
+# the work starts rather than partway into it.
+#
+# Deliberately without exceptions, even for the tasks that never reach for a
+# container. Touching a stylesheet on a machine that cannot run Harbor accomplishes
+# nothing, and failing at the first task is what says so.
+setup() {
+    resolve_java_home
+    resolve_maven
+    resolve_container_runtime
 }
 
 # Every mvn build must carry the deployed commit SHA — the enforcer plugin fails
@@ -141,14 +165,13 @@ resolve_maven() {
 # and pass it to every mvn invocation. A non-repo checkout is a hard error by
 # design: an unidentifiable build should never be produced.
 run_mvn() {
-    local commit maven
+    local commit
     if ! commit=$(git rev-parse HEAD 2>/dev/null); then
         echo "Cannot resolve the git commit (not a git repository?)." >&2
         echo "build.commit is mandatory; refusing to build." >&2
         exit 1
     fi
-    maven=$(resolve_maven)
-    "${maven}" "$@" -Dbuild.commit="${commit}"
+    "${MAVEN}" "$@" -Dbuild.commit="${commit}"
 }
 
 # Bump styles.css mtime. styles.css is only @import statements; editing an
@@ -170,7 +193,7 @@ clear_bundles() {
 }
 
 task_compile() {
-    resolve_java_home
+    setup
     run_mvn -q compile
     echo "Compiled. spring-boot-devtools will hot-restart a running app."
 }
@@ -178,7 +201,7 @@ task_compile() {
 # Force a clean frontend rebuild after a @CssImport / @JsModule change: drop the
 # cached bundles, touch styles.css, then compile so devtools rebuilds the bundle.
 task_bundle() {
-    resolve_java_home
+    setup
     clear_bundles
     touch_styles
     run_mvn -q compile
@@ -186,6 +209,7 @@ task_bundle() {
 }
 
 task_styles() {
+    setup
     touch_styles
 }
 
@@ -291,6 +315,8 @@ compose_env() {
 # environment/dev/compose.yaml, quadlets come from environment/dev/quadlet — so
 # adding a service needs no change here.
 task_env() {
+    setup
+
     local action="${1:-up}"
     case "${action}" in
         up|down|logs|reset) ;;
@@ -317,19 +343,18 @@ task_env() {
 # off the test classpath as it runs, and no resolution goal sees that in advance.
 # The first `test` downloads it. That is a slow first run, not a broken one.
 task_deps() {
-    resolve_java_home
+    setup
     run_mvn --batch-mode --no-transfer-progress dependency:go-offline
 }
 
 task_test() {
-    resolve_java_home
-    resolve_container_runtime
+    setup
     # JaCoCo enforces an 80% line-coverage gate on the */service packages.
     run_mvn test "$@"
 }
 
 task_run() {
-    resolve_java_home
+    setup
     run_mvn spring-boot:run
 }
 
@@ -350,22 +375,21 @@ task_preview() {
 # that fails to boot — the same trap `clean` exists for, and `mvn clean` alone
 # does not clear it since the bundles live under src/.
 task_verify() {
-    resolve_java_home
-    resolve_container_runtime
+    setup
     clear_bundles
     run_mvn clean verify -Pit "$@"
 }
 
 # Full production build.
 task_package() {
-    resolve_java_home
+    setup
     run_mvn clean package "$@"
 }
 
 task_clean() {
-    resolve_java_home
+    setup
     clear_bundles
-    "$(resolve_maven)" clean
+    "${MAVEN}" clean
 }
 
 usage() {
