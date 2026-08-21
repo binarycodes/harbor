@@ -446,8 +446,9 @@ the tasks.
 ```
 
 Open <http://localhost:8080> and sign in as **`reader` / `reader`**. Every default
-matches `environment/dev/compose.yaml`, so nothing needs configuring — including the
-realm, which is imported from a committed export on Keycloak's first boot.
+matches the development stack in `environment/dev`, so nothing needs configuring —
+including the realm, which a one-shot container creates over Keycloak's admin API the
+first time the stack comes up.
 `./run.sh env reset` throws the data away and gives you a first-run empty library. The
 frontend is rebuilt on the fly in development
 mode; the first start downloads npm dependencies and takes a little longer.
