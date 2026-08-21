@@ -7,51 +7,17 @@
 # supports it silently generates no getters, so the build dies with bogus
 # "cannot find symbol" errors.
 #
-# Everything specific to one project is in the configuration block below; nothing
-# under it names a project. Usage: ./run.sh <task> (or `help` to list tasks).
+# Everything specific to one project is in run.conf beside it; nothing in this file
+# names a project, so projects share it as it stands. A task this runner does not
+# have goes in run.tasks.sh, for the same reason.
+#
+# Usage: ./run.sh <task> (or `help` to list tasks).
 
 set -euo pipefail
 
 cd "$(dirname "$0")"
 
-# ---------------------------------------------------------------------------
-# Project configuration. A different project changes these and nothing else.
-# ---------------------------------------------------------------------------
-
-# Named in what the tasks print, so the messages say whose stack came up.
-readonly PROJECT_NAME="Harbor"
-
-# The JDK to build with, matched as a prefix against SDKMAN's candidates.
-readonly JAVA_VERSION="21"
-
-# Where the development stack is defined: compose.yaml for docker, quadlet/ for
-# podman. Both are read from here, never listed in this script.
-readonly ENV_DIR="environment/dev"
-
-# The prefix every container and volume of that stack is named with, which is how
-# `env reset` finds the storage to throw away without naming each volume. Lowercased,
-# because the name above is written for reading and a container name is not.
-readonly CONTAINER_PREFIX="${PROJECT_NAME,,}-dev"
-
-# Whether this project needs a container runtime at all. When true, every task
-# resolves one up front and stops if there is none — the application does not start
-# without the services it talks to, and the tests bring their own. Set it to false for
-# a project that talks to nothing, and no task will look for docker or podman.
-readonly CONTAINER_REQUIRED="true"
-
-# Vaadin's own defaults, and the entry stylesheet whose @imports the browser caches.
-readonly BUNDLE_DIR="src/main/bundles"
-readonly STYLES_CSS="src/main/resources/META-INF/resources/styles.css"
-
-# The profile that puts the integration tests in production mode. Empty for a
-# project whose `verify` needs no profile.
-readonly IT_PROFILE="it"
-
-# A property carrying the deployed commit SHA, passed to every mvn invocation.
-# Harbor's enforcer plugin rejects a build without it, which is what makes every
-# artefact traceable to a commit. Empty for a project that does not ask for one —
-# then a checkout that is not a git repository builds fine.
-readonly COMMIT_PROPERTY="build.commit"
+readonly PROJECT_CONFIG_FILE="run.conf"
 
 # Tasks a project has that this runner does not: a file of task_<name> functions,
 # sourced below the helpers so they can call setup and run_mvn like the tasks here
@@ -59,7 +25,33 @@ readonly COMMIT_PROPERTY="build.commit"
 # without a merge. It may also define project_usage, printed under the task list.
 readonly PROJECT_TASKS_FILE="run.tasks.sh"
 
-# ---------------------------------------------------------------------------
+if [[ ! -f "${PROJECT_CONFIG_FILE}" ]]; then
+    echo "No ${PROJECT_CONFIG_FILE} found" >&2
+    exit 1
+fi
+source "./${PROJECT_CONFIG_FILE}"
+
+# A project has to answer these two; nothing sensible can be assumed for either.
+for setting in PROJECT_NAME JAVA_VERSION; do
+    if [[ -z "${!setting:-}" ]]; then
+        echo "${PROJECT_CONFIG_FILE} sets no ${setting}" >&2
+        exit 1
+    fi
+done
+unset setting
+
+# Everything else falls back to the layout a Vaadin project has by default, so a
+# configuration only names what it decides. See run.conf for what each one is.
+: "${ENV_DIR:=environment/dev}"
+: "${CONTAINER_REQUIRED:=true}"
+: "${CONTAINER_PREFIX:=${PROJECT_NAME,,}-dev}"
+: "${BUNDLE_DIR:=src/main/bundles}"
+: "${STYLES_CSS:=src/main/resources/META-INF/resources/styles.css}"
+: "${IT_PROFILE:=}"
+: "${COMMIT_PROPERTY:=}"
+
+readonly PROJECT_NAME JAVA_VERSION ENV_DIR CONTAINER_REQUIRED CONTAINER_PREFIX
+readonly BUNDLE_DIR STYLES_CSS IT_PROFILE COMMIT_PROPERTY
 
 readonly DEV_COMPOSE_FILE="${ENV_DIR}/compose.yaml"
 readonly QUADLET_DIR="${ENV_DIR}/quadlet"
@@ -265,6 +257,8 @@ task_bundle() {
 task_styles() {
     setup
     touch_styles
+    run_mvn -q process-resources
+    echo "Stylesheets processed. Reload the browser."
 }
 
 # Docker renamed compose from a script to a subcommand and both are still in the
