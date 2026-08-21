@@ -135,12 +135,19 @@
     border-inline-start: 1px solid var(--vaadin-border-color-secondary);
 }
 
+/*
+    The inset from the panel's edges belongs here rather than on each pane inside.
+    The panes fill the width they are given, and a pane that is both full width and
+    inset by a margin of its own is wider than the panel by exactly that margin —
+    which the reader meets as a horizontal scrollbar under their notes.
+*/
 .notes-editor {
     min-height: 0;
+    padding-inline: 14px;
 }
 
 .notes-editor-bar {
-    padding: 11px 14px 9px;
+    padding: 11px 0 9px;
 }
 
 .notes-editor-modes {
@@ -170,7 +177,7 @@
 
 .notes-editor-input,
 .notes-editor-preview {
-    margin: 0 14px 14px;
+    margin: 0 0 14px;
 }
 
 .notes-editor-preview {

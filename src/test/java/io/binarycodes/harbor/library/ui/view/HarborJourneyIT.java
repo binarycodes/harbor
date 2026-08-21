@@ -207,21 +207,28 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
     }
 
     /**
-     * The notes panes are inset from the panel's edges by a margin, and one asked to
-     * fill the width as well is the panel's whole width on top of that inset — which
-     * the reader meets as a scrollbar under their notes that scrolls nothing worth
-     * seeing. Measured rather than eyeballed, because 28px of overflow looks like
-     * nothing until the scrollbar appears.
+     * The notes pane fills the width it is given and is inset from the panel's edges,
+     * and those two pull against each other: an inset applied to the pane itself makes
+     * it wider than the panel by exactly that inset, which the reader meets as a
+     * scrollbar under their notes. Both halves are asserted, because taking the width
+     * away stops the scrollbar by leaving the field at a fraction of the panel — the
+     * fault this test exists to catch, traded for a worse-looking one.
      */
     @Test
-    @DisplayName("writes notes in a panel that does not scroll sideways")
-    void notesPanelDoesNotScrollSideways() {
+    @DisplayName("writes notes in a panel that fills its width and does not scroll sideways")
+    void notesPanelFillsItsWidth() {
         saveALink();
 
-        Locator scroller = page.locator("vaadin-tabsheet-scroller");
-
         assertNoSidewaysOverflow(page.locator(".notes-editor"), "the notes editor");
-        assertNoSidewaysOverflow(scroller, "the panel's scroller");
+        assertNoSidewaysOverflow(page.locator("vaadin-tabsheet-scroller"), "the panel's scroller");
+
+        // The bar above it is inset the same way, so the two agreeing is the field
+        // being exactly as wide as the space it has.
+        double barWidth = page.locator(".notes-editor-bar").boundingBox().width;
+        double fieldWidth = page.locator("vaadin-text-area.notes-editor-input").boundingBox().width;
+
+        assertTrue(Math.abs(fieldWidth - barWidth) <= 1, "the notes field should be as wide as"
+                + " the bar above it, but was " + fieldWidth + "px against " + barWidth + "px");
     }
 
     @Test
