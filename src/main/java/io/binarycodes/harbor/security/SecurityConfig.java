@@ -2,6 +2,7 @@ package io.binarycodes.harbor.security;
 
 import java.time.Duration;
 
+import org.springframework.boot.security.autoconfigure.web.servlet.PathRequest;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.ObjectPostProcessor;
@@ -28,9 +29,10 @@ import com.vaadin.flow.spring.security.VaadinSecurityConfigurer;
  * <p>Which provider is a deployment's choice and appears nowhere in this class. Harbor
  * is an OpenID Connect client and needs no more than that.
  *
- * <p>Nothing here grants access on its own. A route without an access annotation is
- * denied by navigation access control, and ownership is enforced a layer down, in
- * SQL, by {@code LibraryOwner}.
+ * <p>Nothing here grants access to a route on its own. A route without an access
+ * annotation is denied by navigation access control, and ownership is enforced a layer
+ * down, in SQL, by {@code LibraryOwner}. The one thing this class does open up is the
+ * static resource directories, which hold stylesheets and nothing of any reader's.
  */
 @Configuration
 @EnableWebSecurity
@@ -65,7 +67,18 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http,
             LogoutSuccessHandler oidcLogoutSuccessHandler) throws Exception {
-        return http.with(VaadinSecurityConfigurer.vaadin(), vaadin -> vaadin
+        // Vaadin publishes styles.css itself, but the @imports inside it are requests
+        // of their own and inherit nothing from it, so every partial came back 403 and
+        // the application rendered unstyled. Spring Boot's common static locations are
+        // what Vaadin's own styling documentation reaches for here, and they cover
+        // css/ — where these partials already live — along with the other directories
+        // a static file would be put in, so the next one added needs no rule of its
+        // own. Registered before Vaadin's rules, because the anyRequest they end with
+        // would otherwise match first.
+        return http.authorizeHttpRequests(requests -> requests
+                        .requestMatchers(PathRequest.toStaticResources().atCommonLocations())
+                        .permitAll())
+                .with(VaadinSecurityConfigurer.vaadin(), vaadin -> vaadin
                         .oauth2LoginPage(AUTHORIZATION_PATH)
                         .logoutSuccessHandler(oidcLogoutSuccessHandler))
                 .headers(headers -> {
