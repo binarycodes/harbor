@@ -115,18 +115,40 @@ resolve_container_runtime() {
     echo "Using ${runtime} at DOCKER_HOST=${DOCKER_HOST}"
 }
 
+# The mvn to run. A bare `mvn` is on the PATH of a login shell only, because SDKMAN
+# installs it under ~/.sdkman and the profile is what puts it there — so anything
+# starting this script without one, the Claude Code preview pane included, dies with
+# "mvn: command not found". Resolve it the way JAVA_HOME is resolved, rather than
+# depending on how this script happened to be started.
+resolve_maven() {
+    if command -v mvn >/dev/null 2>&1; then
+        echo "mvn"
+        return
+    fi
+    local candidate
+    candidate=$(ls -d "${HOME}"/.sdkman/candidates/maven/current/bin/mvn \
+                      "${HOME}"/.sdkman/candidates/maven/*/bin/mvn 2>/dev/null | head -1 || true)
+    if [[ -z "${candidate}" ]]; then
+        echo "No mvn on the PATH and none under ~/.sdkman." >&2
+        echo "Install Maven, or start this from a shell where SDKMAN is initialised." >&2
+        exit 1
+    fi
+    echo "${candidate}"
+}
+
 # Every mvn build must carry the deployed commit SHA — the enforcer plugin fails
 # the build without a valid build.commit. Resolve it once from the working tree
 # and pass it to every mvn invocation. A non-repo checkout is a hard error by
 # design: an unidentifiable build should never be produced.
 run_mvn() {
-    local commit
+    local commit maven
     if ! commit=$(git rev-parse HEAD 2>/dev/null); then
         echo "Cannot resolve the git commit (not a git repository?)." >&2
         echo "build.commit is mandatory; refusing to build." >&2
         exit 1
     fi
-    mvn "$@" -Dbuild.commit="${commit}"
+    maven=$(resolve_maven)
+    "${maven}" "$@" -Dbuild.commit="${commit}"
 }
 
 # Bump styles.css mtime. styles.css is only @import statements; editing an
@@ -343,7 +365,7 @@ task_package() {
 task_clean() {
     resolve_java_home
     clear_bundles
-    mvn clean
+    "$(resolve_maven)" clean
 }
 
 usage() {
