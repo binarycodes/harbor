@@ -206,6 +206,24 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
         assertThat(page.locator(".notes-editor-preview").getByText("the first point")).isVisible();
     }
 
+    /**
+     * The notes panes are inset from the panel's edges by a margin, and one asked to
+     * fill the width as well is the panel's whole width on top of that inset — which
+     * the reader meets as a scrollbar under their notes that scrolls nothing worth
+     * seeing. Measured rather than eyeballed, because 28px of overflow looks like
+     * nothing until the scrollbar appears.
+     */
+    @Test
+    @DisplayName("writes notes in a panel that does not scroll sideways")
+    void notesPanelDoesNotScrollSideways() {
+        saveALink();
+
+        Locator scroller = page.locator("vaadin-tabsheet-scroller");
+
+        assertNoSidewaysOverflow(page.locator(".notes-editor"), "the notes editor");
+        assertNoSidewaysOverflow(scroller, "the panel's scroller");
+    }
+
     @Test
     @DisplayName("keeps a passage from the article and finds it on the highlights screen")
     void keepsAHighlight() {
@@ -366,6 +384,15 @@ class HarborJourneyIT extends AbstractBasePlaywrightIT {
         double gap = delete.boundingBox().x - (edit.boundingBox().x + edit.boundingBox().width);
 
         assertTrue(gap < 8, "edit and delete should sit together, but were " + gap + "px apart");
+    }
+
+    private void assertNoSidewaysOverflow(Locator locator, String describeElement) {
+        int scrollWidth = ((Number) locator.evaluate("node => node.scrollWidth")).intValue();
+        int clientWidth = ((Number) locator.evaluate("node => node.clientWidth")).intValue();
+
+        assertTrue(scrollWidth <= clientWidth, describeElement + " scrolls sideways by "
+                + (scrollWidth - clientWidth) + "px: " + scrollWidth + " of content in "
+                + clientWidth + "px");
     }
 
     private void chooseSort(String option) {

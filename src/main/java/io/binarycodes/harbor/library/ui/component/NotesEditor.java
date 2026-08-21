@@ -33,12 +33,16 @@ public class NotesEditor extends VerticalLayout {
         editor.addClassName("notes-editor-input");
         editor.setPlaceholder(getTranslation("reader.notes.placeholder"));
         editor.setAriaLabel(getTranslation("reader.notes.label"));
-        editor.setSizeFull();
+        // Height only. Both of these are inset from the panel's edges by a margin, and
+        // a full width is the panel's whole width on top of it — which is 28px of
+        // content the panel does not have, and a horizontal scrollbar under it. The
+        // column they sit in stretches them to what is left instead.
+        editor.setHeightFull();
         editor.setValueChangeMode(ValueChangeMode.LAZY);
         editor.addValueChangeListener(event -> onNotesChanged.accept(event.getValue()));
 
         preview.getElement().getClassList().add("notes-editor-preview");
-        preview.setSizeFull();
+        preview.setHeightFull();
 
         writeButton = modeButton("reader.notes.write", () -> showPreview(false));
         previewButton = modeButton("reader.notes.preview", () -> showPreview(true));
