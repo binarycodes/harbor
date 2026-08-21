@@ -1,4 +1,4 @@
-.claude/
+.claude/*
 *.class
 .idea/
 
@@ -12,3 +12,5 @@ types.d.ts
 *.lock
 
 .DS_Store
+
+!.claude/launch.json
