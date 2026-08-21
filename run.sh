@@ -29,29 +29,88 @@ resolve_java_home() {
     echo "Using JAVA_HOME=${JAVA_HOME}"
 }
 
-# Testcontainers finds the daemon through DOCKER_HOST or /var/run/docker.sock. The
-# docker CLI instead reads its own "context", so on Colima and Rancher Desktop the CLI
-# works while Testcontainers reports "Could not find a valid Docker environment" — the
-# socket is under the user's home, which docker-java never looks at. Take the endpoint
-# from the context the CLI is actually using.
+# Which runtime this machine has, or nothing at all. docker first: where both are
+# installed, docker is the one whose context and compose plugin this script drives,
+# and podman is usually there as its backend.
+container_runtime() {
+    if command -v docker >/dev/null 2>&1; then
+        echo "docker"
+    elif command -v podman >/dev/null 2>&1; then
+        echo "podman"
+    fi
+}
+
+require_container_runtime() {
+    local runtime
+    runtime=$(container_runtime)
+    if [[ -z "${runtime}" ]]; then
+        echo "No container runtime found. Either docker or podman is required." >&2
+        exit 1
+    fi
+    echo "${runtime}"
+}
+
+# Testcontainers finds the daemon through DOCKER_HOST or /var/run/docker.sock and
+# looks nowhere else. Neither CLI advertises itself there: docker keeps its endpoint
+# in a "context", so on Colima and Rancher Desktop the CLI works while Testcontainers
+# reports "Could not find a valid Docker environment", and rootless podman puts its
+# socket under /run/user/<uid>. So ask whichever CLI this machine has where its
+# socket is, and hand that to Testcontainers.
 #
-# The socket override is for Ryuk, the cleanup sidecar: it mounts the socket from
-# inside the VM, where the path is /var/run/docker.sock regardless of where the host
-# sees it.
-resolve_docker_host() {
+# The override is for Ryuk, the cleanup sidecar, which mounts the socket from inside
+# its own container and so needs a path rather than an endpoint. The two runtimes
+# disagree on which path: a VM-backed docker sees /var/run/docker.sock however the
+# host spells it, while rootless podman runs no VM and needs the real path.
+#
+# Starting the socket is deliberately left to whoever runs this — the task says what
+# to run and stops rather than enabling a system service behind their back.
+resolve_container_runtime() {
     if [[ -n "${DOCKER_HOST:-}" ]]; then
         return
     fi
     if [[ -S /var/run/docker.sock ]]; then
         return
     fi
-    local endpoint
-    endpoint=$(docker context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null || true)
-    if [[ -n "${endpoint}" && "${endpoint}" != "unix:///var/run/docker.sock" ]]; then
-        export DOCKER_HOST="${endpoint}"
-        export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="${TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE:-/var/run/docker.sock}"
-        echo "Using DOCKER_HOST=${DOCKER_HOST}"
+
+    local runtime endpoint="" override=""
+    runtime=$(require_container_runtime)
+    case "${runtime}" in
+        docker)
+            endpoint=$(docker context inspect --format '{{.Endpoints.docker.Host}}' 2>/dev/null || true)
+            override="/var/run/docker.sock"
+            ;;
+        podman)
+            local socket
+            socket=$(podman info --format '{{.Host.RemoteSocket.Path}}' 2>/dev/null || true)
+            if [[ -n "${socket}" ]]; then
+                endpoint="unix://${socket}"
+                override="${socket}"
+            fi
+            ;;
+    esac
+
+    if [[ -z "${endpoint}" ]]; then
+        echo "${runtime} is installed but would not say where its socket is." >&2
+        echo "Set DOCKER_HOST by hand, or check that ${runtime} itself works." >&2
+        exit 1
     fi
+
+    # podman reports its socket path whether or not anything is listening on it, and
+    # a docker context outlives the daemon it points at, so neither answer proves the
+    # runtime is up. Say which command starts it instead of failing deep inside a test.
+    if [[ "${endpoint}" == unix://* && ! -S "${endpoint#unix://}" ]]; then
+        echo "${runtime} reports its socket at ${endpoint#unix://}, but nothing is listening." >&2
+        if [[ "${runtime}" == "podman" ]]; then
+            echo "Start it with: systemctl --user start podman.socket" >&2
+        else
+            echo "Start the docker daemon, then retry." >&2
+        fi
+        exit 1
+    fi
+
+    export DOCKER_HOST="${endpoint}"
+    export TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE="${TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE:-${override}}"
+    echo "Using ${runtime} at DOCKER_HOST=${DOCKER_HOST}"
 }
 
 # Every mvn build must carry the deployed commit SHA — the enforcer plugin fails
@@ -156,7 +215,7 @@ task_deps() {
 
 task_test() {
     resolve_java_home
-    resolve_docker_host
+    resolve_container_runtime
     # JaCoCo enforces an 80% line-coverage gate on the */service packages.
     run_mvn test "$@"
 }
@@ -184,7 +243,7 @@ task_preview() {
 # does not clear it since the bundles live under src/.
 task_verify() {
     resolve_java_home
-    resolve_docker_host
+    resolve_container_runtime
     clear_bundles
     run_mvn clean verify -Pit "$@"
 }

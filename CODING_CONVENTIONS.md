@@ -104,7 +104,7 @@ Project-wide rules. Once a pattern is established here, follow it without prompt
 
 ## 11. Build & CI
 
-- `./run.sh test` and `verify` export `DOCKER_HOST` from the active docker context when it is not already set. The CLI reads contexts and Testcontainers does not, so on Colima the CLI works while the tests report no Docker environment.
+- `./run.sh test` and `verify` export `DOCKER_HOST` when it is not already set, asking whichever runtime is installed where its socket is — the docker context, or `podman info`. Testcontainers reads neither, so on Colima or rootless podman the CLI works while the tests report no Docker environment. Neither answer proves the socket is live, so the task says which command starts it and stops rather than starting anything itself.
 - `./run.sh env` brings up the whole development stack in one task and names no service: which containers Harbor needs is `environment/dev/compose.yaml`'s decision, so adding one there needs no change to `run.sh`.
 - Run build / test / frontend tasks through `./run.sh <task>` (`env`, `deps`, `compile`, `bundle`, `styles`, `test`, `verify`, `run`, `package`, `clean`), which pins JDK 21. Never invoke `mvn` directly. `deps` pre-downloads dependencies and build plugins; no task requires it first, since a build fetches what it is missing. After a `@CssImport(themeFor=…)` / `@JsModule` change run `./run.sh bundle`; after editing an `@import`-ed CSS partial run `./run.sh styles`.
 - `./run.sh verify` clears the cached bundles before building. A `dev.bundle` left by `./run.sh run` makes the frontend build report "a production mode bundle build is not needed", and the integration tests then open a page whose client bundle fails to boot.
