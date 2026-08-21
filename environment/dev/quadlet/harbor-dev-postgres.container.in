@@ -1,0 +1,37 @@
+# Harbor's library.
+#
+# Every credential here is published and guessable, which is only acceptable
+# because this is a laptop's configuration — see the README in this directory.
+[Unit]
+Description=Harbor development PostgreSQL
+
+[Container]
+ContainerName=harbor-dev-postgres
+Image=docker.io/library/postgres:18-alpine
+Network=harbor-dev.network
+NetworkAlias=postgres
+PublishPort=5432:5432
+Volume=harbor-dev-data.volume:/var/lib/postgresql
+
+Environment=POSTGRES_DB=harbor
+Environment=POSTGRES_USER=harbor
+Environment=POSTGRES_PASSWORD=harbor
+
+# The app starts fast enough to beat Postgres to it, and Flyway's first migration is
+# what pays for that with a confusing connection error. Notify=healthy is what makes
+# `systemctl start` wait for the probe rather than for the process, so `./run.sh env
+# up` returns only once this is actually usable.
+HealthCmd=pg_isready -U harbor -d harbor
+HealthInterval=5s
+HealthTimeout=3s
+HealthRetries=10
+Notify=healthy
+
+[Service]
+Restart=always
+
+# So `systemctl --user enable` is available to anyone who wants the stack back after a
+# reboot. Deliberately not enabled by `./run.sh env up`, which starts the units and
+# leaves that choice alone.
+[Install]
+WantedBy=default.target

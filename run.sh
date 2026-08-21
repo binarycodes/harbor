@@ -14,6 +14,8 @@ cd "$(dirname "$0")"
 
 readonly BUNDLE_DIR="src/main/bundles"
 readonly DEV_COMPOSE_FILE="environment/dev/compose.yaml"
+readonly QUADLET_DIR="environment/dev/quadlet"
+readonly QUADLET_INSTALL_DIR="${XDG_CONFIG_HOME:-${HOME}/.config}/containers/systemd"
 readonly STYLES_CSS="src/main/resources/META-INF/resources/styles.css"
 
 # Resolve a JDK 21 from SDKMAN; fall back to whatever JAVA_HOME is already set.
@@ -166,7 +168,8 @@ task_styles() {
 }
 
 # Docker renamed compose from a script to a subcommand and both are still in the
-# wild, so find whichever this machine has rather than guessing.
+# wild, so find whichever this machine has rather than guessing. Only the docker
+# shapes: podman drives the stack through quadlets instead.
 compose() {
     if docker compose version >/dev/null 2>&1; then
         docker compose -f "${DEV_COMPOSE_FILE}" "$@"
@@ -179,26 +182,109 @@ compose() {
     fi
 }
 
-# The whole development stack, because Harbor needs all of it: the library lives in
-# Postgres, a page that cannot be archived is not saved, and login is mandatory on
-# every route. Which containers that means is compose's to decide from
-# environment/dev/compose.yaml, so adding a service there needs no change here.
-#
-# --wait rather than plain -d: every service declares a healthcheck, and the app
-# starting before them is what turns a slow container into a confusing connection or
-# discovery error at startup.
-task_env() {
-    local action="${1:-up}"
+# The units of the development stack, derived from what is in the quadlet directory
+# so that adding a service there needs no change here — the same property the compose
+# file has.
+quadlet_services() {
+    local unit
+    for unit in "${QUADLET_DIR}"/*.container.in; do
+        echo "$(basename "${unit}" .container.in).service"
+    done
+}
+
+# Copy the units into the directory systemd's generator reads, substituting the one
+# thing a quadlet cannot state for itself: where this checkout lives, which the two
+# files mounted into Keycloak need as an absolute path.
+install_quadlets() {
+    mkdir -p "${QUADLET_INSTALL_DIR}"
+    local unit
+    for unit in "${QUADLET_DIR}"/*.in; do
+        sed "s|@HARBOR_ENV_DIR@|${PWD}/environment/dev|g" \
+            "${unit}" > "${QUADLET_INSTALL_DIR}/$(basename "${unit}" .in)"
+    done
+    systemctl --user daemon-reload
+    echo "Installed quadlet units into ${QUADLET_INSTALL_DIR}"
+}
+
+# podman drives the stack through quadlets rather than compose: systemd starts the
+# units, orders them, and — because every container declares Notify=healthy — reports
+# one as started only once its healthcheck passes. That is what `up --wait` and
+# `depends_on: service_healthy` bought under compose, so nothing is lost by not
+# having a compose file in the loop.
+quadlet_env() {
+    local action="$1"
+    local -a services
+    mapfile -t services < <(quadlet_services)
+
     case "${action}" in
+        up)
+            install_quadlets
+            systemctl --user start "${services[@]}"
+            echo "Development stack is up. Harbor needs no configuration to reach it."
+            echo "It is started, not enabled: add 'systemctl --user enable' yourself to"
+            echo "get it back after a reboot."
+            ;;
+        down)
+            systemctl --user stop "${services[@]}"
+            echo "Development stack stopped; its data is kept."
+            ;;
+        logs)
+            local -a follow=()
+            local service
+            for service in "${services[@]}"; do
+                follow+=(--unit "${service}")
+            done
+            journalctl --user --follow "${follow[@]}"
+            ;;
+        reset)
+            systemctl --user stop "${services[@]}"
+            # Every volume of the stack rather than a named one, for the same reason
+            # the services are read from a directory: this should not need editing
+            # when the stack gains storage.
+            podman volume ls --filter name=harbor-dev --quiet \
+                | xargs --no-run-if-empty podman volume rm --force >/dev/null
+            echo "Development stack stopped and its data thrown away."
+            ;;
+    esac
+}
+
+compose_env() {
+    local action="$1"
+    case "${action}" in
+        # --wait rather than plain -d: every service declares a healthcheck, and the
+        # app starting before them is what turns a slow container into a confusing
+        # connection or discovery error at startup.
         up)    compose up -d --wait && echo "Development stack is up. Harbor needs no configuration to reach it." ;;
         down)  compose stop && echo "Development stack stopped; its data is kept." ;;
         logs)  compose logs -f ;;
         reset) compose down -v && echo "Development stack stopped and its data thrown away." ;;
+    esac
+}
+
+# The whole development stack, because Harbor needs all of it: the library lives in
+# Postgres, a page that cannot be archived is not saved, and login is mandatory on
+# every route.
+#
+# Which containers that means is never this function's decision — compose reads
+# environment/dev/compose.yaml, quadlets come from environment/dev/quadlet — so
+# adding a service needs no change here.
+task_env() {
+    local action="${1:-up}"
+    case "${action}" in
+        up|down|logs|reset) ;;
         *)
             echo "Unknown env action: ${action} (expected up, down, logs or reset)" >&2
             exit 1
             ;;
     esac
+
+    local runtime
+    runtime=$(require_container_runtime)
+    if [[ "${runtime}" == "podman" ]]; then
+        quadlet_env "${action}"
+    else
+        compose_env "${action}"
+    fi
 }
 
 # Warm the local Maven repository ahead of a build, so a later task needs no
@@ -265,8 +351,8 @@ usage() {
 Usage: ./run.sh <task>
 
 Tasks:
-  env [act]  Everything in environment/dev/compose.yaml: up (default), down, logs,
-             reset (throws the data away)
+  env [act]  The whole development stack — quadlets under podman, compose under
+             docker: up (default), down, logs, reset (throws the data away)
   deps       Pre-download dependencies and build plugins, so a later task
              needs no network
   compile    Compile sources (triggers a devtools hot-restart of a running app)

@@ -1,0 +1,38 @@
+# Creates the realm, once, and exits. A script against the admin REST API rather than a
+# realm export imported at boot: an export has to be an exactly correct
+# RealmRepresentation or the container refuses to start, and says so through a Jackson
+# field error that names nothing about Keycloak. Here a mistake is an HTTP 400 that
+# names the field. Re-running is safe: each step looks up what it would create and
+# skips it if it is already there.
+[Unit]
+Description=Harbor development Keycloak realm setup
+# Keycloak reports startup only once its readiness probe passes, so ordering after it
+# is ordering after it is answering — which is what this script needs and what
+# `depends_on: service_healthy` used to say.
+Requires=harbor-dev-keycloak.service
+After=harbor-dev-keycloak.service
+
+[Container]
+ContainerName=harbor-dev-keycloak-init
+Image=docker.io/library/node:24-alpine
+Network=harbor-dev.network
+Volume=@HARBOR_ENV_DIR@/keycloak/init.mjs:/tmp/init.mjs:ro,z
+
+Environment=KC_URL=http://keycloak:8080
+Environment=KC_ADMIN_USERNAME=admin
+Environment=KC_ADMIN_PASSWORD=admin
+
+Entrypoint=node
+Exec=/tmp/init.mjs
+
+[Service]
+# It is meant to exit. oneshot is what tells systemd that running to completion is
+# success rather than a service that died, and RemainAfterExit keeps it showing as
+# done instead of inactive. Restarting a container that has finished its job is what
+# would stop `./run.sh env up` from ever settling.
+Type=oneshot
+RemainAfterExit=yes
+Restart=no
+
+[Install]
+WantedBy=default.target

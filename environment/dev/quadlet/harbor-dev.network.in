@@ -1,0 +1,11 @@
+# One network for the stack, so the containers can find each other by name —
+# keycloak-init reaches Keycloak at http://keycloak:8080 and nothing else would
+# resolve that. Podman's DNS only answers on a user-defined network, never on the
+# default one.
+[Unit]
+Description=Harbor development network
+
+[Network]
+# Without this the network would be called systemd-harbor-dev: quadlet prefixes
+# what it creates, and the name is what `podman network` and the units below say.
+NetworkName=harbor-dev

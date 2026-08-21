@@ -18,10 +18,35 @@ containers, so no configuration is needed.
 Open <http://localhost:8080> and sign in as **`reader` / `reader`**.
 
 One task for the whole stack rather than one per service: which containers it brings
-up is compose's decision, so a service added to `compose.yaml` needs no change to
+up is the stack definition's decision, so a service added there needs no change to
 `run.sh`. `./run.sh env down` stops them and keeps the data; `./run.sh env reset`
 throws the volumes away, which is how you get back to a first-run empty library.
 `./run.sh env logs` follows all three at once.
+
+## Two runtimes, two definitions
+
+The stack is defined twice, and `./run.sh env` picks by what is installed.
+
+Under **docker** it is `compose.yaml`, run with `up -d --wait`.
+
+Under **podman** it is the quadlets in `quadlet/` — systemd units that podman's
+generator turns into services — because compose is not how podman is meant to be
+driven. `systemctl` starts them, and `Notify=healthy` on every container is what makes
+systemd treat a unit as started only once its healthcheck passes: that is what buys
+the ordering `depends_on: service_healthy` and `up --wait` bought under compose, which
+is the whole reason the realm setup can assume Keycloak is answering.
+
+The files are templates (`*.in`). A quadlet cannot say where this checkout lives, and
+two of them mount a file out of this directory, so `./run.sh env up` substitutes the
+path and copies them into `~/.config/containers/systemd`. Editing a unit therefore
+means re-running `./run.sh env up`.
+
+The units are started, never enabled — whether this stack should come back after a
+reboot is not `run.sh`'s call. `systemctl --user enable harbor-dev-postgres.service`
+and friends if you want it to.
+
+Keeping both definitions in step is manual: a service added to one needs adding to
+the other.
 
 ## The realm
 
@@ -83,7 +108,9 @@ else can reach.
 its own secret and its own exact redirect URI. Nothing here is a starting point for
 that.
 
-Requires a container runtime with the Compose plugin (`docker compose` or the
-standalone `docker-compose`). The test suite needs the same runtime for a different
-reason: Testcontainers starts its own throwaway PostgreSQL, Chromium and Keycloak, and
-sets the last of those up itself rather than using anything in this directory.
+Requires either podman, or docker with the Compose plugin (`docker compose` or the
+standalone `docker-compose`). Rootless podman also needs its socket listening —
+`systemctl --user start podman.socket` — which `run.sh` will tell you about rather than
+do for you. The test suite needs the same runtime for a different reason:
+Testcontainers starts its own throwaway PostgreSQL, Chromium and Keycloak, and sets the
+last of those up itself rather than using anything in this directory.

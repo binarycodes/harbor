@@ -1,0 +1,39 @@
+# Harbor archives every page it saves and refuses to save one it cannot archive, so
+# this is not optional in development either.
+#
+# chromedp's headless-shell rather than an image of our own: Chromium binds its
+# DevTools port to loopback whatever --remote-debugging-address says, and this image
+# already carries the forwarder that works around it — which is why it exposes both
+# 9222 and 9223. Pinned to a version rather than :stable so an upgrade is a commit.
+[Unit]
+Description=Harbor development headless Chromium
+
+[Container]
+ContainerName=harbor-dev-chromium
+Image=docker.io/chromedp/headless-shell:151.0.7922.109
+Network=harbor-dev.network
+NetworkAlias=chromium
+PublishPort=9222:9222
+
+# A browser rendering pages from the open web wants a hard ceiling: Chromium treats
+# /dev/shm as its scratch space and the default 64 MB is too little, while an
+# unbounded browser can take the whole machine.
+ShmSize=512m
+Memory=1g
+
+# Probed on the address the app will actually use, not 127.0.0.1: a browser bound only
+# to loopback passes a loopback check and is still unreachable, which is exactly the
+# failure this is here to catch. The container's own name resolves to its address on
+# the network above, which keeps a shell expansion out of a systemd unit — where a `$`
+# is systemd's before it is ever the shell's.
+HealthCmd=bash -c "</dev/tcp/harbor-dev-chromium/9222"
+HealthInterval=5s
+HealthTimeout=3s
+HealthRetries=10
+Notify=healthy
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target

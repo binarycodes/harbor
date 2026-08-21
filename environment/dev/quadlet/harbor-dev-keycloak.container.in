@@ -1,0 +1,42 @@
+# Who Harbor asks about the reader. Login is mandatory on every route, so this is as
+# required as the database — the app fetches the issuer's discovery document at startup
+# and will not start without it.
+#
+# Started empty. The realm, its client and its one reader are created afterwards by
+# harbor-dev-keycloak-init.
+[Unit]
+Description=Harbor development Keycloak
+
+[Container]
+ContainerName=harbor-dev-keycloak
+Image=quay.io/keycloak/keycloak:26.4
+Network=harbor-dev.network
+# The alias, not the container name, is what keycloak-init's KC_URL asks for.
+NetworkAlias=keycloak
+# 8081, because Keycloak's own default is Harbor's. The management port is not
+# published: only the healthcheck below reaches it, from inside the container.
+PublishPort=8081:8080
+Volume=@HARBOR_ENV_DIR@/keycloak/HealthCheck.java:/tmp/HealthCheck.java:ro,z
+
+Environment=KC_BOOTSTRAP_ADMIN_USERNAME=admin
+Environment=KC_BOOTSTRAP_ADMIN_PASSWORD=admin
+# The readiness endpoint lives on the management port, and only when asked for.
+Environment=KC_HEALTH_ENABLED=true
+
+Exec=start-dev
+
+# This image carries no curl and no wget, but it does carry a JVM — so the probe is a
+# single Java source file. It asks /health/ready rather than testing whether a port is
+# open, because Keycloak binds its ports long before it can answer, and the init unit
+# depends on this being true rather than merely started.
+HealthCmd=java /tmp/HealthCheck.java http://localhost:9000/health/ready
+HealthInterval=5s
+HealthTimeout=5s
+HealthRetries=30
+Notify=healthy
+
+[Service]
+Restart=always
+
+[Install]
+WantedBy=default.target
