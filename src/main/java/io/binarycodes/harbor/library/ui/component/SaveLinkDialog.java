@@ -21,6 +21,7 @@ import com.vaadin.flow.data.value.ValueChangeMode;
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.BookmarkType;
 import io.binarycodes.harbor.library.domain.LinkDraft;
+import io.binarycodes.harbor.library.service.AbsoluteUrl;
 import io.binarycodes.harbor.library.service.AddressNotAllowedException;
 import io.binarycodes.harbor.library.service.DuplicateBookmarkException;
 import io.binarycodes.harbor.library.service.LinkMetadata;
@@ -233,7 +234,27 @@ public class SaveLinkDialog extends Dialog {
         if (fetching || !binder.validate().isOk()) {
             return;
         }
+        completeScheme();
         resolveInBackground(this::reviewFetched);
+    }
+
+    /**
+     * Nobody types a scheme, so {@code vaadin.com} becomes {@code https://vaadin.com}
+     * before anything is done with it. Written back into the field rather than only
+     * passed along, for two reasons: the reader can see what Harbor is about to fetch
+     * and correct it if that was not the link they meant, and it is this value the
+     * bookmark keeps — a stored {@code vaadin.com} is a relative link everywhere it is
+     * later rendered.
+     *
+     * <p>Setting the field is what updates the draft, through the binder. A URL too
+     * malformed to complete is left exactly as typed, for the fetch to fail on and
+     * report in the one place failures are reported.
+     */
+    private void completeScheme() {
+        String completed = AbsoluteUrl.ofOrSame(url.getValue());
+        if (!completed.equals(url.getValue())) {
+            url.setValue(completed);
+        }
     }
 
     /**

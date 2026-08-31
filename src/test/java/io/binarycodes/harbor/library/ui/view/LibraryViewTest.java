@@ -242,6 +242,48 @@ class LibraryViewTest extends SpringBrowserlessTest {
     }
 
     /**
+     * Nobody types a scheme. The field is rewritten so the reader can see what Harbor
+     * is about to fetch, and so the bookmark keeps an absolute URL — a stored
+     * {@code example.com/bare} is a relative link everywhere it is later rendered.
+     */
+    @Test
+    @DisplayName("completes a missing scheme, in the field and in what is saved")
+    void completesAMissingScheme() throws InterruptedException {
+        navigate(LibraryView.class);
+        find(Button.class).withCaption("Save a link").single().click();
+        SaveLinkDialog dialog = find(SaveLinkDialog.class).single();
+        urlField(dialog).setValue("example.com/bare");
+
+        find(Button.class, dialog).withCaption("Fetch").single().click();
+        awaitSubmitEnabled(dialog);
+
+        assertEquals("https://example.com/bare", urlField(dialog).getValue());
+
+        submitButton(dialog).click();
+
+        String id = presenter.find(LibraryQuery.of(LibraryScope.ALL)).getFirst().id();
+        assertEquals("https://example.com/bare", presenter.findById(id).orElseThrow().url());
+    }
+
+    /**
+     * An address that already says how to reach it is left exactly as it is — the
+     * completion must not quietly rewrite http to https.
+     */
+    @Test
+    @DisplayName("leaves a URL that already has a scheme alone")
+    void keepsAnExistingScheme() throws InterruptedException {
+        navigate(LibraryView.class);
+        find(Button.class).withCaption("Save a link").single().click();
+        SaveLinkDialog dialog = find(SaveLinkDialog.class).single();
+        urlField(dialog).setValue("http://example.com/plain");
+
+        find(Button.class, dialog).withCaption("Fetch").single().click();
+        awaitSubmitEnabled(dialog);
+
+        assertEquals("http://example.com/plain", urlField(dialog).getValue());
+    }
+
+    /**
      * The refusal arrives through {@code ui.access} like the fetch itself, so the field
      * has to be looked up again each round rather than held on to.
      */
