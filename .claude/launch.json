@@ -5,7 +5,15 @@
       "name": "harbor",
       "runtimeExecutable": "./run.sh",
       "runtimeArgs": ["preview"],
-      "port": 8080
+      "port": 8080,
+      "autoPort": true
+    },
+    {
+      "name": "harbor-deferred-archive",
+      "runtimeExecutable": "./run.sh",
+      "runtimeArgs": ["preview-deferred-archive"],
+      "port": 8090,
+      "autoPort": true
     }
   ]
 }
