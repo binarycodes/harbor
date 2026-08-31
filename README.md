@@ -21,16 +21,19 @@ Markdown as you type.
 | Reader | The article text on its own, with notes and highlights beside it |
 | Save a link | Paste a URL; Harbor reads the page for the title, description, kind and body, and archives it as a PDF |
 
-**Every saved page is archived as a PDF, and a page that cannot be archived is not
-saved.** Harbor hands the URL to a headless Chromium, which loads the page for
-itself — running its scripts, applying its real stylesheets, loading its web fonts —
-and prints it. So the archive looks like the page a reader saw, with its pictures
-and its layout, and the text in it stays selectable and searchable. The reader
-offers it as *View PDF*, which opens in a new tab.
+**Every saved page is archived as a PDF, and by default a page that cannot be
+archived is not saved.** Harbor hands the URL to a headless Chromium, which loads the
+page for itself — running its scripts, applying its real stylesheets, loading its web
+fonts — and prints it. So the archive looks like the page a reader saw, with its
+pictures and its layout, and the text in it stays selectable and searchable. The
+reader offers it as *View PDF*, which opens in a new tab.
 
 That browser is a **required** second service, and Harbor will not start without
 `HARBOR_BROWSER_URL` pointing at one. Archiving is the point of a library like this:
 a bookmark with no copy of its page is a link that will rot.
+
+Rendering takes seconds, and by default the save waits for it. If you would rather
+file a link at once and let the copy follow, see *Waiting for the archive* below.
 
 Search covers everything at once — titles, descriptions, sites, tags, your notes,
 the article body, and your highlights. Sort by recency, title, or reading time.
@@ -424,6 +427,35 @@ about it — and they cannot, because a page it renders can ask for any address,
 depth, long after Harbor has stopped looking. Deciding what that container may reach
 is a network design decision, not an application setting. If internal hosts are
 reachable from it, they are reachable by any page you archive.
+
+### Waiting for the archive
+
+Rendering a page is the slowest thing Harbor does — a whole browser, fetching the
+page again along with its images and its fonts. By default the save waits for it: the
+*Save* button stays disabled until the archive exists, and a page that will not render
+is not saved at all. That is what makes *every bookmark has a copy of its page* a
+guarantee rather than an intention, and it costs a few seconds on every save.
+
+If you would rather not wait:
+
+```bash
+docker run --rm -p 8080:8080 \
+  -e HARBOR_FORCE_ARCHIVE_BEFORE_SAVE=false \
+  binarycodes/harbor:latest
+```
+
+The bookmark is then filed as soon as the page has been read, and the archive is
+rendered afterwards, one page at a time. The reader sees *Archiving…* on the article
+until the copy lands. Two things change with it:
+
+- A bookmark can exist without a copy of its page, and for a page that turns out
+  never to render, permanently — where waiting would have refused the save and told
+  you why.
+- The archive of a page you re-read replaces the old one in the background. The older
+  copy stays readable until the new one is done.
+
+Anything still rendering when Harbor stops is picked up at the next start, so a
+restart costs a re-render rather than the archive.
 
 ---
 

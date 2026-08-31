@@ -1,6 +1,7 @@
 # 005 — PDF rendering runs inside the save and slows it down
 
-**Status:** Open, and considerably more pressing than when this was written.
+**Status:** Settled. `harbor.archive.force-before-save` now decides it, and the
+answer is the deployment's rather than Harbor's — see *Outcome* at the bottom.
 
 Rendering is a headless browser now, not OpenHTMLtoPDF: seconds rather than
 milliseconds. And archiving joined the save gate, so that wait is no longer
@@ -60,3 +61,40 @@ answer and this becomes worth doing properly.
 
 Worth noting either way: a failed render already never blocks a save. This is
 about latency, not correctness.
+
+---
+
+## Outcome
+
+Neither option won outright, so the decision moved to whoever is running Harbor:
+`harbor.archive.force-before-save`, from `HARBOR_FORCE_ARCHIVE_BEFORE_SAVE`.
+
+**On, the default.** Exactly the behaviour described above — the render happens inside
+the resolve, and a page that will not render is not saved. Nothing about it changed,
+including the invariant that made it worth defending: a saved bookmark is an archived
+bookmark. Default on because a forgotten property should not quietly give that up.
+
+**Off.** The bookmark is filed as soon as the page has been read, and the render is
+queued behind it. The machinery this document predicted was mostly needed:
+
+- `ArchiveStatus` (`PENDING` / `READY` / `FAILED`) on the bookmark row, so
+  "still rendering" is distinguishable from "there was never going to be one". The
+  reader shows *Archiving…* for the first.
+- `BackgroundArchiver`, one thread, because there is one browser to render in.
+- `PendingArchiveRecovery`, which re-queues at startup whatever a restart abandoned.
+
+Two things the document did not anticipate:
+
+- The status is **not** on the summary projection. It was going to be, until it turned
+  out no listing had anything to do with it — `BookmarkSummary.hasArchive` was already
+  there and already unused. Adding a second unread field would have been machinery for
+  its own sake.
+- The render never needed the parsed document. `BrowserPageArchiver` always fetched the
+  page for itself and ignored what jsoup handed it, so `ArticleArchiver` lost that
+  parameter and a background render costs no extra fetch — which is what made
+  re-rendering long after the read cheap rather than awkward.
+
+The measurement this document asked for was never taken. That is the honest gap: the
+recommendation was to measure real pages before building the second option, and what
+happened instead was that both were built and the choice handed over. If the numbers
+turn out to favour waiting, the default already does.

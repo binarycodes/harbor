@@ -88,6 +88,9 @@ holds out for a real read rather than filing the URL heuristics as a bookmark.
 **R-3.5** — Why a link was refused is said precisely: unreadable, unarchivable,
 already saved, or an address this deployment will not fetch. The difference
 between "check the link" and "the archiver is down" is the reader's to see.
+Unarchivable is a refusal only where the save waits for the render; where it does not,
+every fetch comes back without an archive and refusing on that would save nothing at
+all.
 → `SaveLinkDialog`, `save.url.*`
 
 **R-3.6** — The same link cannot be saved twice. Sameness ignores host
@@ -109,22 +112,28 @@ highlights and the original save time survive it.
 
 ## 4. Archiving
 
-**R-4.1** — Every saved bookmark carries an archived PDF of its page. A draft
-without one is refused by the service, not merely by the dialog — an invariant
-guarded at the screen is an invariant with a way around it.
-→ `BookmarkService.add`
+**R-4.1** — Every saved bookmark carries an archived PDF of its page, or is on its
+way to one. Which of the two is `harbor.archive.force-before-save`: on, a draft
+without an archive is refused by the service, not merely by the dialog — an
+invariant guarded at the screen is an invariant with a way around it. Off, the same
+draft is filed and the archive follows.
+→ `BookmarkService.add`, `ArchiveProperties.forceBeforeSave`
 
 **R-4.2** — The archive is produced by a real browser loading the page for itself:
 its scripts, its stylesheets, its web fonts. Not a re-serialisation of what jsoup
 parsed, and not a reconstruction of the extracted article.
 → `BrowserPageArchiver`
 
-**R-4.3** — The page is archived at the moment it is read, because that is the one
-moment it is known to be reachable.
-→ `OpenGraphMetadataResolver`
+**R-4.3** — Where the save waits for the archive, the page is archived at the moment
+it is read, because that is the one moment it is known to be reachable. Where it does
+not, the render is queued instead and the reader does not wait for a headless browser
+on every save — at the cost of a page that turns out never to render, which under
+R-4.1's stricter half would simply not have been saved.
+→ `OpenGraphMetadataResolver`, `BackgroundArchiver`
 
-**R-4.4** — Archiving never throws. A page that will not render comes back empty
-and the save gate decides what to do about it.
+**R-4.4** — Archiving never throws. A page that will not render comes back empty,
+and what to do about it belongs to whoever asked: the save gate refuses, the
+background archiver records the failure.
 → `ArticleArchiver`
 
 **R-4.5** — A listing never reads an archive. The PDFs are stored apart from the
@@ -141,6 +150,28 @@ could hold, and it opens inline in a new tab rather than landing in Downloads.
 
 **R-4.8** — Deleting a bookmark deletes its archive with it.
 → `on delete cascade` in `V2__bookmark_archive.sql`
+
+**R-4.9** — A bookmark says where its archive has got to: rendering, kept, or not
+coming. The reader is told which rather than shown an absence they cannot read —
+"Archiving…" and then nothing is a different thing from a page that was never going
+to render.
+→ `ArchiveStatus`, `V3__archive_status.sql`, `ReaderHeader.setArchivePending`
+
+**R-4.10** — Whether there is a copy to offer and whether one is still coming are
+separate questions. A re-read replaces an archive rather than removing it, so the
+older copy stays readable while the newer one renders.
+→ `ReaderView.showArchive`, `BookmarkService.update`
+
+**R-4.11** — An archive left mid-render by a restart is picked up at the next start,
+whatever the archiving mode is then. A queue that forgets its work leaves a reader
+waiting on a render that no longer exists, which is worse than the failure they would
+otherwise have been told about.
+→ `PendingArchiveRecovery`
+
+**R-4.12** — A background render is told whose library it is writing into rather than
+asking. Nobody is signed in on that thread, and `LibraryOwner` is right to refuse
+there rather than guess.
+→ `ArchiveRequest`, `BookmarkArchiveService.store`
 
 ---
 
