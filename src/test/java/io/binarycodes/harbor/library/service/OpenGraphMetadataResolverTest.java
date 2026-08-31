@@ -2,10 +2,10 @@ package io.binarycodes.harbor.library.service;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.jsoup.Jsoup;
@@ -139,35 +139,32 @@ class OpenGraphMetadataResolverTest {
         }
     }
 
+    /**
+     * The completed URL has to reach the archiver, not only the page loader. jsoup is
+     * forgiving about a bare host and a headless browser is not — Chromium leaves the
+     * tab on about:blank — so the two disagreeing is a page that reads fine and
+     * archives blank, which is what {@code vaadin.com} used to do.
+     */
     @Nested
-    @DisplayName("the URL itself")
-    class UrlHandling {
+    @DisplayName("the URL it hands on")
+    class UrlHandedOn {
 
         @Test
-        @DisplayName("gets https assumed when a scheme was left out")
-        void assumesHttps() {
-            assertEquals("https://example.com/thing",
-                    OpenGraphMetadataResolver.absolute("example.com/thing"));
-        }
+        @DisplayName("reaches the archiver with its scheme completed")
+        void archivesTheAbsoluteUrl() {
+            List<String> archived = new ArrayList<>();
+            OpenGraphMetadataResolver resolver = new OpenGraphMetadataResolver(
+                    url -> Jsoup.parse("<html><head><title>A page</title></head></html>", url),
+                    (title, url, archivedAt) -> {
+                        archived.add(url);
+                        return java.util.Optional.of(new byte[] { 1 });
+                    },
+                    new ArchiveProperties("http://archiver.invalid:9222", null, 0, true),
+                    java.time.Clock.systemUTC());
 
-        @Test
-        @DisplayName("is left alone when it already has a scheme")
-        void keepsExistingScheme() {
-            assertEquals("http://example.com/thing",
-                    OpenGraphMetadataResolver.absolute("http://example.com/thing"));
-        }
+            resolver.resolve("vaadin.com");
 
-        @Test
-        @DisplayName("is refused for anything the server has no business fetching")
-        void refusesOtherSchemes() {
-            assertThrows(IllegalArgumentException.class,
-                    () -> OpenGraphMetadataResolver.absolute("file:///etc/passwd"));
-            assertThrows(IllegalArgumentException.class,
-                    () -> OpenGraphMetadataResolver.absolute("jar:file:///tmp/x.jar!/y"));
-            assertThrows(IllegalArgumentException.class,
-                    () -> OpenGraphMetadataResolver.absolute("https://"));
-            assertThrows(IllegalArgumentException.class,
-                    () -> OpenGraphMetadataResolver.absolute("https://exa mple.com"));
+            assertEquals(List.of("https://vaadin.com"), archived);
         }
     }
 

@@ -1,10 +1,7 @@
 package io.binarycodes.harbor.library.service;
 
 import java.io.IOException;
-import java.net.URI;
 import java.time.Clock;
-import java.net.URISyntaxException;
-import java.util.List;
 import java.util.Locale;
 
 import org.jsoup.nodes.Document;
@@ -57,16 +54,21 @@ public class OpenGraphMetadataResolver implements MetadataResolver {
 
     @Override
     public LinkMetadata resolve(String url) {
-        LinkMetadata fromUrl = fallback.resolve(url);
+        // Completed once, here, and used for everything downstream. The archiver gets
+        // this rather than what was typed: jsoup tolerates a bare host and Chromium
+        // does not, so passing the raw URL on produced a page that read fine and
+        // archived blank.
+        String address = AbsoluteUrl.ofOrSame(url);
+        LinkMetadata fromUrl = fallback.resolve(address);
         Document document;
         try {
-            document = documentLoader.load(absolute(url));
+            document = documentLoader.load(AbsoluteUrl.of(address));
         } catch (BlockedAddressException blocked) {
-            LOGGER.warn("Refused to fetch {}: {} is outside the ranges this deployment allows", url,
+            LOGGER.warn("Refused to fetch {}: {} is outside the ranges this deployment allows", address,
                     blocked.getAddress());
             throw new AddressNotAllowedException(blocked);
         } catch (IOException | IllegalArgumentException unreachable) {
-            LOGGER.info("Could not read {}, describing it from the URL instead: {}", url,
+            LOGGER.info("Could not read {}, describing it from the URL instead: {}", address,
                     unreachable.getMessage());
             return fromUrl;
         }
@@ -74,7 +76,7 @@ public class OpenGraphMetadataResolver implements MetadataResolver {
         String content = ArticleExtractor.toMarkdown(document);
         String title = firstNonBlank(meta(document, "og:title"), document.title(), fromUrl.title());
         byte[] archive = archiveProperties.forceBeforeSave()
-                ? archiver.archive(title, url, clock.millis()).orElse(null)
+                ? archiver.archive(title, address, clock.millis()).orElse(null)
                 : null;
         return new LinkMetadata(
                 firstNonBlank(meta(document, "og:site_name"), fromUrl.site()),
@@ -115,31 +117,6 @@ public class OpenGraphMetadataResolver implements MetadataResolver {
             }
         }
         return "";
-    }
-
-    /**
-     * Only http and https are followed. A link the reader pasted is untrusted input,
-     * and every other scheme a URI can name would have the server read something it
-     * has no business reading.
-     */
-    static String absolute(String url) {
-        String candidate = url == null ? "" : url.strip();
-        if (!candidate.matches("(?i)^[a-z][a-z0-9+.-]*://.*")) {
-            candidate = "https://" + candidate;
-        }
-        try {
-            URI parsed = new URI(candidate);
-            String scheme = parsed.getScheme() == null ? "" : parsed.getScheme().toLowerCase(Locale.ROOT);
-            if (!List.of("http", "https").contains(scheme)) {
-                throw new IllegalArgumentException("Unsupported URL scheme: " + scheme);
-            }
-            if (parsed.getHost() == null || parsed.getHost().isBlank()) {
-                throw new IllegalArgumentException("URL has no host: " + url);
-            }
-            return parsed.toString();
-        } catch (URISyntaxException malformed) {
-            throw new IllegalArgumentException("Not a URL: " + url, malformed);
-        }
     }
 
 }
