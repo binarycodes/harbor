@@ -25,6 +25,7 @@ public class ReaderHeader extends HorizontalLayout {
     private final Button readLaterToggle = new Button();
     private final Anchor original = new Anchor();
     private final ArchiveDownload archive = new ArchiveDownload();
+    private final Span archivePending = new Span();
 
     public ReaderHeader(Runnable onToggleReadLater, Runnable onEdit, Runnable onDelete) {
         addClassName("reader-header");
@@ -59,7 +60,13 @@ public class ReaderHeader extends HorizontalLayout {
         delete.addClassName("reader-delete");
         delete.showLabel();
 
-        HorizontalLayout actions = new HorizontalLayout(readLaterToggle, edit, delete, archive, original);
+        archivePending.addClassName("reader-archive-pending");
+        archivePending.setVisible(false);
+        archivePending.add(VaadinIcon.CLOCK.create(),
+                new Span(getTranslation("reader.archive.pending")));
+
+        HorizontalLayout actions = new HorizontalLayout(readLaterToggle, edit, delete, archive,
+                archivePending, original);
         actions.addClassName("reader-actions");
         actions.setPadding(false);
         actions.setAlignItems(Alignment.CENTER);
@@ -78,6 +85,15 @@ public class ReaderHeader extends HorizontalLayout {
 
     public void hideArchive() {
         archive.hide();
+    }
+
+    /**
+     * Says that a copy of the page is on its way. Independent of whether the control
+     * above is showing: a re-read replaces an archive rather than removing it, so
+     * there can be an older copy to offer while a newer one renders.
+     */
+    public void setArchivePending(boolean pending) {
+        archivePending.setVisible(pending);
     }
 
     public void show(Bookmark bookmark) {

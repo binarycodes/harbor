@@ -9,7 +9,6 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 
-import org.jsoup.nodes.Document;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -19,7 +18,7 @@ import org.springframework.stereotype.Component;
  * applies the real stylesheets and loads the web fonts, so what comes back is the
  * page as a reader would have seen it rather than a reconstruction of its article.
  *
- * <p>The parsed {@link Document} is ignored: Harbor already fetched the page to
+ * <p>It takes no parsed document. Harbor has usually already fetched the page to
  * describe it, but the browser has to fetch it again for itself, and re-serialising
  * what jsoup parsed would hand the browser something subtly different from what the
  * site serves.
@@ -66,7 +65,7 @@ class BrowserPageArchiver implements ArticleArchiver {
     }
 
     @Override
-    public Optional<byte[]> archive(Document document, String title, String url, long archivedAt) {
+    public Optional<byte[]> archive(String title, String url, long archivedAt) {
         Duration timeout = properties.browserTimeout();
         try (DevToolsSession session = DevToolsSession.open(httpClient, socketUrl(timeout), timeout)) {
             return Optional.of(print(session, url, timeout));

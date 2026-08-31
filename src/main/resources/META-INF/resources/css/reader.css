@@ -37,6 +37,16 @@
     background: var(--vaadin-background-container);
 }
 
+.reader-archive-pending {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--vaadin-gap-s);
+    height: 34px;
+    padding: 0 12px;
+    color: var(--vaadin-text-color-secondary);
+    font-size: var(--aura-font-size-s);
+}
+
 .reader-origin {
     display: inline-flex;
     align-items: center;

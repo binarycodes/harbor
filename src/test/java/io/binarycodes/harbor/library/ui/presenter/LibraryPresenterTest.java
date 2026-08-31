@@ -25,6 +25,7 @@ import io.binarycodes.harbor.library.domain.BookmarkType;
 import io.binarycodes.harbor.library.domain.LibraryQuery;
 import io.binarycodes.harbor.library.domain.LibraryScope;
 import io.binarycodes.harbor.library.domain.LinkDraft;
+import io.binarycodes.harbor.library.service.ArchiveProperties;
 import io.binarycodes.harbor.library.service.BookmarkService;
 import io.binarycodes.harbor.library.service.LegacyLibraryDecoder;
 
@@ -53,6 +54,9 @@ class LibraryPresenterTest {
     @Autowired
     private LegacyLibraryDecoder decoder;
 
+    @Autowired
+    private ArchiveProperties archiveProperties;
+
     private LibraryPresenter presenter;
 
     @BeforeEach
@@ -64,6 +68,7 @@ class LibraryPresenterTest {
                 url -> {
                     throw new UnsupportedOperationException("No test here reads a page");
                 },
+                archiveProperties,
                 browserStorage,
                 new LegacyLibraryImport(browserStorage, decoder, bookmarkService));
     }

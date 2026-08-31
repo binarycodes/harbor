@@ -241,13 +241,18 @@ public class SaveLinkDialog extends Dialog {
      * problems for the reader: the page could not be reached at all, or it was
      * reached and could not be archived. Saying which is the difference between
      * "check the link" and "the archiver is down".
+     *
+     * <p>The second is only a refusal where the deployment renders before saving.
+     * Where it does not, an empty archive is what every fetch returns — the render has
+     * not been attempted yet — and refusing on it would mean nothing could ever be
+     * saved.
      */
     private void reviewFetched(LinkMetadata metadata) {
         if (!metadata.pageRead()) {
             refuse("save.url.unreadable");
             return;
         }
-        if (!metadata.hasArchive()) {
+        if (!metadata.hasArchive() && presenter.isArchiveRequiredBeforeSave()) {
             refuse("save.url.unarchivable");
             return;
         }
@@ -359,6 +364,7 @@ public class SaveLinkDialog extends Dialog {
         draft.setReadingMinutes(metadata.readingMinutes());
         draft.setContent(metadata.content());
         draft.setArchive(metadata.archive());
+        draft.setRefetched(true);
         if (isBlank(draft.getTitle())) {
             draft.setTitle(metadata.title());
         }

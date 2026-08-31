@@ -21,7 +21,8 @@ public record Bookmark(
         int readingMinutes,
         String content,
         String notes,
-        List<Highlight> highlights) {
+        List<Highlight> highlights,
+        ArchiveStatus archiveStatus) {
 
     public Bookmark {
         tags = tags == null ? List.of() : List.copyOf(tags);
@@ -29,21 +30,27 @@ public record Bookmark(
         type = type == null ? BookmarkType.ARTICLE : type;
         notes = notes == null ? "" : notes;
         content = content == null ? "" : content;
+        archiveStatus = archiveStatus == null ? ArchiveStatus.READY : archiveStatus;
     }
 
     public Bookmark withReadLater(boolean value) {
         return new Bookmark(id, url, title, site, author, description, tags, type, value, savedAt,
-                readingMinutes, content, notes, highlights);
+                readingMinutes, content, notes, highlights, archiveStatus);
     }
 
     public Bookmark withNotes(String value) {
         return new Bookmark(id, url, title, site, author, description, tags, type, readLater, savedAt,
-                readingMinutes, content, value, highlights);
+                readingMinutes, content, value, highlights, archiveStatus);
     }
 
     public Bookmark withHighlights(List<Highlight> value) {
         return new Bookmark(id, url, title, site, author, description, tags, type, readLater, savedAt,
-                readingMinutes, content, notes, value);
+                readingMinutes, content, notes, value, archiveStatus);
+    }
+
+    public Bookmark withArchiveStatus(ArchiveStatus value) {
+        return new Bookmark(id, url, title, site, author, description, tags, type, readLater, savedAt,
+                readingMinutes, content, notes, highlights, value);
     }
 
     public int coverIndex() {

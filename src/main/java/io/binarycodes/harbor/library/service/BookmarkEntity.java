@@ -6,6 +6,7 @@ import java.util.UUID;
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 
+import io.binarycodes.harbor.library.domain.ArchiveStatus;
 import io.binarycodes.harbor.library.domain.BookmarkType;
 import io.binarycodes.harbor.library.domain.Highlight;
 import jakarta.persistence.Column;
@@ -65,6 +66,9 @@ class BookmarkEntity {
 
     @Enumerated(EnumType.STRING)
     private BookmarkType type;
+
+    @Enumerated(EnumType.STRING)
+    private ArchiveStatus archiveStatus;
 
     private boolean readLater;
     private long savedAt;

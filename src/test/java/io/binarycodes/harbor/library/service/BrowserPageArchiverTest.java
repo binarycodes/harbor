@@ -136,10 +136,10 @@ class BrowserPageArchiverTest {
     @DisplayName("comes back empty when the browser cannot be reached")
     void survivesAnAbsentBrowser() {
         ArchiveProperties nowhere = new ArchiveProperties(
-                "http://127.0.0.1:1", Duration.ofSeconds(2), 1280);
+                "http://127.0.0.1:1", Duration.ofSeconds(2), 1280, true);
 
         assertTrue(new BrowserPageArchiver(nowhere)
-                .archive(null, "Title", url("/plain"), 0L).isEmpty());
+                .archive("Title", url("/plain"), 0L).isEmpty());
     }
 
     /**
@@ -157,11 +157,11 @@ class BrowserPageArchiverTest {
     }
 
     private static Optional<byte[]> archive(String pageUrl) {
-        return new BrowserPageArchiver(properties()).archive(null, "Title", pageUrl, 1_755_000_000_000L);
+        return new BrowserPageArchiver(properties()).archive("Title", pageUrl, 1_755_000_000_000L);
     }
 
     private static ArchiveProperties properties() {
-        return new ArchiveProperties(browserUrl(), Duration.ofSeconds(30), 1280);
+        return new ArchiveProperties(browserUrl(), Duration.ofSeconds(30), 1280, true);
     }
 
     private static String browserUrl() {

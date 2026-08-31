@@ -6,6 +6,7 @@ import java.util.UUID;
 
 import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -103,4 +104,40 @@ interface BookmarkRepository extends JpaRepository<BookmarkEntity, UUID> {
             order by count(*) desc, tag collate "und-x-icu"
             """, nativeQuery = true)
     List<TagCountRow> tagCounts(@Param("ownerId") String ownerId);
+
+    /**
+     * Moves a bookmark's archive on without loading it. A background render finishing
+     * is not an edit the reader made, so it has no business bumping the version and
+     * losing a race against one they did make — which is exactly what reading the
+     * entity and setting the field would do.
+     *
+     * @return how many rows moved, which is zero when the bookmark was deleted while
+     *         its archive was still rendering
+     */
+    @Modifying
+    @Query(value = """
+            update bookmark set archive_status = cast(:status as text)
+            where id = cast(:id as uuid) and owner_id = cast(:ownerId as text)
+            """, nativeQuery = true)
+    int updateArchiveStatus(@Param("id") UUID id, @Param("ownerId") String ownerId,
+            @Param("status") String status);
+
+    /**
+     * Everything left mid-render when the application last stopped, across every
+     * owner — the one query here that is not scoped to one, because nobody is signed
+     * in at startup and a PENDING archive is owed to its reader whether or not they
+     * are. The owner comes out of the row and is carried into the work from there.
+     *
+     * <p>A projection rather than the entity: the article body is by far the largest
+     * thing on a bookmark and re-archiving needs none of it.
+     */
+    @Query(value = """
+            select cast(b.id as text) as "id",
+                   b.owner_id as "ownerId",
+                   b.url as "url",
+                   b.title as "title"
+            from bookmark b
+            where b.archive_status = 'PENDING'
+            """, nativeQuery = true)
+    List<PendingArchiveRow> findPendingArchives();
 }

@@ -22,6 +22,7 @@ import io.binarycodes.harbor.library.domain.HighlightGroup;
 import io.binarycodes.harbor.library.domain.LibraryQuery;
 import io.binarycodes.harbor.library.domain.LinkDraft;
 import io.binarycodes.harbor.library.domain.TagCount;
+import io.binarycodes.harbor.library.service.ArchiveProperties;
 import io.binarycodes.harbor.library.service.BookmarkService;
 import io.binarycodes.harbor.library.service.LinkMetadata;
 import io.binarycodes.harbor.library.service.MetadataResolver;
@@ -52,6 +53,7 @@ public class LibraryPresenter {
 
     private final BookmarkService bookmarkService;
     private final MetadataResolver metadataResolver;
+    private final ArchiveProperties archiveProperties;
     private final BrowserStorage browserStorage;
     private final LegacyLibraryImport legacyLibraryImport;
     private final List<Runnable> changeListeners = new ArrayList<>();
@@ -63,11 +65,22 @@ public class LibraryPresenter {
     private int importedFromBrowser;
 
     LibraryPresenter(BookmarkService bookmarkService, MetadataResolver metadataResolver,
-            BrowserStorage browserStorage, LegacyLibraryImport legacyLibraryImport) {
+            ArchiveProperties archiveProperties, BrowserStorage browserStorage,
+            LegacyLibraryImport legacyLibraryImport) {
         this.bookmarkService = bookmarkService;
         this.metadataResolver = metadataResolver;
+        this.archiveProperties = archiveProperties;
         this.browserStorage = browserStorage;
         this.legacyLibraryImport = legacyLibraryImport;
+    }
+
+    /**
+     * Whether a page that will not render is a page that cannot be saved. The save
+     * dialog asks because the answer decides what an empty archive means to it: a
+     * refusal, or a render that has not happened yet.
+     */
+    public boolean isArchiveRequiredBeforeSave() {
+        return archiveProperties.forceBeforeSave();
     }
 
     public Registration addChangeListener(Runnable listener) {

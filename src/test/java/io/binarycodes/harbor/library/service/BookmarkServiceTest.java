@@ -28,6 +28,7 @@ import org.springframework.test.context.ActiveProfiles;
 import io.binarycodes.harbor.HarborDatabase;
 import io.binarycodes.harbor.StubIdentityConfiguration;
 import io.binarycodes.harbor.StubMetadataConfiguration;
+import io.binarycodes.harbor.library.domain.ArchiveStatus;
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.BookmarkSummary;
 import io.binarycodes.harbor.library.domain.BookmarkType;
@@ -358,6 +359,11 @@ class BookmarkServiceTest {
         }
     }
 
+    /**
+     * All of this is the shipped default, where the archive is rendered before the save
+     * returns. What the same drafts do with {@code harbor.archive.force-before-save}
+     * off is {@link BackgroundArchiveTest}.
+     */
     @Nested
     @DisplayName("when a page could not be archived")
     class Unarchivable {
@@ -413,7 +419,7 @@ class BookmarkServiceTest {
             Bookmark saved = new Bookmark("ignored", "https://example.com/one", "One", "example.com",
                     "example.com", "Saved from example.com", List.of("Reading"), BookmarkType.ARTICLE,
                     true, 1_600_000_000_000L, 7, "## Body", "remember this",
-                    List.of(new Highlight("a passage worth keeping")));
+                    List.of(new Highlight("a passage worth keeping")), ArchiveStatus.READY);
 
             assertEquals(1, service.importAll(List.of(saved)));
 
@@ -461,7 +467,7 @@ class BookmarkServiceTest {
         private Bookmark imported(String url, String title) {
             return new Bookmark("ignored", url, title, "example.com", "example.com",
                     "Saved from example.com", List.of("Reading"), BookmarkType.ARTICLE, false,
-                    1_600_000_000_000L, 7, "## Body", "", List.of());
+                    1_600_000_000_000L, 7, "## Body", "", List.of(), ArchiveStatus.READY);
         }
     }
 
@@ -698,7 +704,7 @@ class BookmarkServiceTest {
         draft.setType(BookmarkType.ARTICLE);
         draft.setReadingMinutes(7);
         draft.setContent("## Body\n\nSome words.");
-        // Every bookmark carries an archive now; add() refuses a draft without one.
+        // add() refuses a draft with no archive while it is the save that renders one.
         draft.setArchive(StubMetadataConfiguration.STUB_ARCHIVE);
         return draft;
     }

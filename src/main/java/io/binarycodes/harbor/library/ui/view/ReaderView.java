@@ -18,6 +18,7 @@ import com.vaadin.flow.shared.Registration;
 
 import io.binarycodes.harbor.base.ui.EmptyState;
 import io.binarycodes.harbor.base.ui.MainLayout;
+import io.binarycodes.harbor.library.domain.ArchiveStatus;
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.service.BookmarkArchiveService;
 import io.binarycodes.harbor.library.ui.component.DeleteBookmarkDialog;
@@ -140,6 +141,10 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
     /**
      * The bytes are fetched only if the reader clicks: opening an article should not
      * read a PDF nobody asked for, and it is the largest thing stored.
+     *
+     * <p>Whether there is a copy to offer and whether one is still coming are two
+     * questions. A bookmark saved before its render finished has neither; one whose
+     * page was just re-read has both.
      */
     private void showArchive(Bookmark bookmark) {
         if (archives.exists(bookmark.id())) {
@@ -148,6 +153,7 @@ public class ReaderView extends VerticalLayout implements BeforeEnterObserver, H
         } else {
             header.hideArchive();
         }
+        header.setArchivePending(bookmark.archiveStatus() == ArchiveStatus.PENDING);
     }
 
     private void showLoading() {

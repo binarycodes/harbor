@@ -183,7 +183,8 @@ class OpenGraphMetadataResolverTest {
      */
     private static OpenGraphMetadataResolver resolverOver(DocumentLoader loader) {
         return new OpenGraphMetadataResolver(loader,
-                (document, title, url, archivedAt) -> java.util.Optional.empty(),
+                (title, url, archivedAt) -> java.util.Optional.empty(),
+                new ArchiveProperties("http://archiver.invalid:9222", null, 0, true),
                 java.time.Clock.systemUTC());
     }
 }

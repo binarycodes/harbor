@@ -13,7 +13,10 @@ import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.JpaSort;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
+import io.binarycodes.harbor.library.domain.ArchiveStatus;
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.BookmarkSummary;
 import io.binarycodes.harbor.library.domain.Highlight;
@@ -35,23 +38,32 @@ import tools.jackson.databind.json.JsonMapper;
  * this package, so what leaves is always an immutable record, and always inside
  * the transaction that produced it.
  *
- * <p>Every bookmark carries an archive of its page. {@link #add} refuses a draft
- * without one, because the save dialog is only one caller and an invariant guarded
- * at the screen is an invariant with a way around it.
+ * <p>Every bookmark carries an archive of its page, or is on its way to one.
+ * {@code harbor.archive.force-before-save} decides which: with it on, {@link #add}
+ * refuses a draft with no archive, because the save dialog is only one caller and an
+ * invariant guarded at the screen is an invariant with a way around it. With it off,
+ * the same draft is filed {@link ArchiveStatus#PENDING} and handed to
+ * {@link BackgroundArchiver} — the bookmark is saved at once, and its copy of the
+ * page follows.
  */
 @Component
 public class BookmarkService {
 
     private final BookmarkRepository repository;
     private final BookmarkArchiveService archives;
+    private final BackgroundArchiver backgroundArchiver;
+    private final ArchiveProperties archiveProperties;
     private final LibraryOwner owner;
     private final Clock clock;
     private final JsonMapper jsonMapper = JsonMapper.builder().build();
 
     BookmarkService(BookmarkRepository repository, BookmarkArchiveService archives,
+            BackgroundArchiver backgroundArchiver, ArchiveProperties archiveProperties,
             LibraryOwner owner, Clock clock) {
         this.repository = repository;
         this.archives = archives;
+        this.backgroundArchiver = backgroundArchiver;
+        this.archiveProperties = archiveProperties;
         this.owner = owner;
         this.clock = clock;
     }
@@ -114,7 +126,8 @@ public class BookmarkService {
 
     @Transactional
     public Bookmark add(LinkDraft draft) {
-        if (draft.getArchive() == null || draft.getArchive().length == 0) {
+        boolean archived = carriesArchive(draft);
+        if (!archived && archiveProperties.forceBeforeSave()) {
             throw new IllegalArgumentException(
                     "A bookmark cannot be saved without an archive of its page");
         }
@@ -136,9 +149,14 @@ public class BookmarkService {
                 Math.max(1, draft.getReadingMinutes()),
                 draft.getContent(),
                 "",
-                List.of()), entity, owner.current());
+                List.of(),
+                archived ? ArchiveStatus.READY : ArchiveStatus.PENDING), entity, owner.current());
         Bookmark saved = BookmarkMapper.toBookmark(save(entity));
         keepArchive(saved.id(), draft);
+        if (!archived) {
+            archiveAfterCommit(new ArchiveRequest(saved.id(), owner.current(), saved.url(),
+                    saved.title()));
+        }
         return saved;
     }
 
@@ -154,6 +172,10 @@ public class BookmarkService {
     @Transactional
     public void update(String id, LinkDraft draft) {
         refuseDuplicate(draft.getUrl(), id);
+        // A re-read that brought no bytes back is a page whose copy is now out of
+        // date, so it is owed a fresh render. An edit that never re-read the page is
+        // owed nothing: the archive it already has is still of the page it names.
+        boolean reArchive = !carriesArchive(draft) && draft.isRefetched();
         replace(id, existing -> new Bookmark(
                 existing.id(),
                 draft.getUrl(),
@@ -168,8 +190,13 @@ public class BookmarkService {
                 Math.max(1, draft.getReadingMinutes()),
                 draft.getContent(),
                 existing.notes(),
-                existing.highlights()));
+                existing.highlights(),
+                reArchive ? ArchiveStatus.PENDING : existing.archiveStatus()));
         keepArchive(id, draft);
+        if (reArchive) {
+            archiveAfterCommit(new ArchiveRequest(id, owner.current(), draft.getUrl(),
+                    draft.getTitle()));
+        }
     }
 
     @Transactional
@@ -230,7 +257,12 @@ public class BookmarkService {
                 continue;
             }
             BookmarkEntity entity = new BookmarkEntity();
-            BookmarkMapper.apply(bookmark, entity, owner.current());
+            // Nothing here has a page to render: these were saved before Harbor
+            // archived anything, and the browser storage they come from kept only
+            // what the reader had written. FAILED rather than PENDING, so an import
+            // does not queue a render of every link in a library at once.
+            BookmarkMapper.apply(bookmark.withArchiveStatus(ArchiveStatus.FAILED), entity,
+                    owner.current());
             save(entity);
             imported++;
         }
@@ -246,6 +278,29 @@ public class BookmarkService {
         if (draft.getArchive() != null && draft.getArchive().length > 0) {
             archives.store(bookmarkId, draft.getArchive(), clock.millis());
         }
+    }
+
+    private static boolean carriesArchive(LinkDraft draft) {
+        return draft.getArchive() != null && draft.getArchive().length > 0;
+    }
+
+    /**
+     * Queued once the bookmark is actually there to be found. The render happens on
+     * another thread and reads the row back to file its result against, so starting it
+     * inside the transaction that created the row would have it looking for something
+     * not yet committed.
+     */
+    private void archiveAfterCommit(ArchiveRequest request) {
+        if (!TransactionSynchronizationManager.isSynchronizationActive()) {
+            backgroundArchiver.submit(request);
+            return;
+        }
+        TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+            @Override
+            public void afterCommit() {
+                backgroundArchiver.submit(request);
+            }
+        });
     }
 
     private void refuseDuplicate(String url, String allowedId) {

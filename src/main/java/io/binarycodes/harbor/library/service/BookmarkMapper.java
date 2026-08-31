@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.UUID;
 
+import io.binarycodes.harbor.library.domain.ArchiveStatus;
 import io.binarycodes.harbor.library.domain.Bookmark;
 import io.binarycodes.harbor.library.domain.BookmarkSummary;
 import io.binarycodes.harbor.library.domain.BookmarkType;
@@ -42,7 +43,8 @@ final class BookmarkMapper {
                 entity.getReadingMinutes(),
                 entity.getContent(),
                 entity.getNotes(),
-                entity.getHighlights());
+                entity.getHighlights(),
+                entity.getArchiveStatus());
     }
 
     static List<Bookmark> toBookmarks(List<BookmarkEntity> entities) {
@@ -97,6 +99,7 @@ final class BookmarkMapper {
         entity.setContent(bookmark.content());
         entity.setNotes(bookmark.notes());
         entity.setHighlights(bookmark.highlights());
+        entity.setArchiveStatus(bookmark.archiveStatus());
         // Lower-cased here rather than at query time so the trigram index is the
         // one the search actually uses.
         entity.setSearchText(bookmark.searchableText().toLowerCase(Locale.ROOT));
